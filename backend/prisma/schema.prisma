@@ -1,0 +1,65 @@
+// Schema do banco — espelha o modelo de dados em docs/especificacao-requisitos.md.
+// Qualquer mudança de campo aqui deve ser refletida naquele documento.
+//
+// SQLite não tem tipo enum nativo, então campos como "tipo"/"motivo"/"perfil"
+// são String simples. Os valores válidos são validados na aplicação (ver
+// src/lib/enums.ts) — não confie apenas no banco para essa checagem.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id            String         @id @default(uuid())
+  nome          String         @unique
+  senhaHash     String
+  perfil        String // "funcionario" | "admin" — ver src/lib/enums.ts
+  criadoEm      DateTime       @default(now())
+  movimentacoes Movimentacao[]
+}
+
+model Categoria {
+  id       String    @id @default(uuid())
+  nome     String    @unique
+  produtos Produto[]
+}
+
+model Produto {
+  id            String         @id @default(uuid())
+  nome          String
+  categoriaId   String
+  categoria     Categoria      @relation(fields: [categoriaId], references: [id])
+  unidade       String // "kg" | "L" — ver src/lib/enums.ts (fardo/saco vira kg na entrada)
+  estoqueMinimo Decimal        @default(0)
+  criadoEm      DateTime       @default(now())
+  movimentacoes Movimentacao[]
+
+  @@index([nome])
+  @@index([categoriaId])
+}
+
+// Registro append-only: uma movimentação nunca é editada nem apagada.
+// O estoque de um produto é sempre a SOMA de todas as suas movimentações
+// (entrada/ajuste positivo soma, saida/ajuste negativo subtrai) — nunca um
+// campo de saldo que se sobrescreve. Ver docs/documento-de-visao.md, seção 5.2.
+model Movimentacao {
+  id                String   @id @default(uuid())
+  produtoId         String
+  produto           Produto  @relation(fields: [produtoId], references: [id])
+  usuarioId         String
+  usuario           Usuario  @relation(fields: [usuarioId], references: [id])
+  tipo              String // "entrada" | "saida" — ver src/lib/enums.ts (ajuste de inventário é entrada OU saida com motivo "inventario", nunca um 3º tipo)
+  motivo            String // "compra" | "devolucao" | "venda" | "perda" | "uso_interno" | "inventario"
+  quantidade        Decimal // sempre positiva; "tipo" decide se soma ou subtrai
+  valor             Decimal  @default(0)
+  origemDispositivo String // id do dispositivo que originou o registro (rastreio de estoque negativo)
+  criadoEm          DateTime @default(now())
+
+  @@index([produtoId])
+  @@index([criadoEm])
+}

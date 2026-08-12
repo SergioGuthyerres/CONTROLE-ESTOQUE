@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RNF05: telas pensadas para toque em celular e baixa familiaridade
+   digital — botões grandes por padrão, texto legível de longe. */
+@layer components {
+  .botao-grande {
+    @apply w-full rounded-xl px-6 py-5 text-xl font-semibold text-white
+      bg-marca active:scale-[0.98] transition disabled:opacity-40;
+  }
+  .campo {
+    @apply w-full rounded-lg border border-gray-300 px-4 py-3 text-lg
+      focus:outline-none focus:ring-2 focus:ring-marca;
+  }
+  .cartao {
+    @apply rounded-xl border border-gray-200 p-4 shadow-sm bg-white;
+  }
+}
