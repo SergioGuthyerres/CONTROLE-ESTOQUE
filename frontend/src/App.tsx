@@ -21,8 +21,14 @@ export function App() {
           <Route element={<RotaProtegida />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
-              <Route path="/entrada" element={<TelaMovimentacao tipo="entrada" />} />
-              <Route path="/saida" element={<TelaMovimentacao tipo="saida" />} />
+              <Route
+                path="/entrada"
+                element={<TelaMovimentacao tipo="entrada" />}
+              />
+              <Route
+                path="/saida"
+                element={<TelaMovimentacao tipo="saida" />}
+              />
               <Route path="/produtos" element={<CadastroProduto />} />
               <Route path="/categorias" element={<CadastroCategoria />} />
 

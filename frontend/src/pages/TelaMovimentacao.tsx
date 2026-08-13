@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { db, type MotivoMovimentacao, type ProdutoLocal, type TipoMovimentacao } from "../db/db";
+import { useNavigate, Link } from "react-router-dom";
+import {
+  db,
+  type MotivoMovimentacao,
+  type ProdutoLocal,
+  type TipoMovimentacao,
+} from "../db/db";
 import { BuscaProduto } from "../components/BuscaProduto";
 import { MOTIVOS_POR_TIPO } from "../lib/enums";
 import { idDoDispositivo } from "../lib/device";
@@ -9,15 +14,22 @@ import { api } from "../lib/api";
 import { sincronizarSePossivel } from "../lib/sync";
 import { estoqueLocalDeProduto } from "../lib/estoque";
 
-const TITULOS: Record<TipoMovimentacao, string> = { entrada: "Registrar Entrada", saida: "Registrar Saída" };
+const TITULOS: Record<TipoMovimentacao, string> = {
+  entrada: "Registrar Entrada",
+  saida: "Registrar Saída",
+};
 
 export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   const navigate = useNavigate();
   const [produto, setProduto] = useState<ProdutoLocal | null>(null);
-  const [motivo, setMotivo] = useState<MotivoMovimentacao>(MOTIVOS_POR_TIPO[tipo][0].valor);
+  const [motivo, setMotivo] = useState<MotivoMovimentacao>(
+    MOTIVOS_POR_TIPO[tipo][0].valor,
+  );
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
-  const [avisoEstoqueServidor, setAvisoEstoqueServidor] = useState<string | null>(null);
+  const [avisoEstoqueServidor, setAvisoEstoqueServidor] = useState<
+    string | null
+  >(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -46,12 +58,16 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
       if (quantidadeGrande) {
         if (!navigator.onLine) {
           setErro(
-            `Essa quantidade (acima de ${limite}) exige internet para confirmar. Conecte e tente de novo.`
+            `Essa quantidade (acima de ${limite}) exige internet para confirmar. Conecte e tente de novo.`,
           );
           return;
         }
-        const resposta = await api<{ estoqueAtual: number }>(`/produtos/${produto.id}/estoque`);
-        setAvisoEstoqueServidor(`Estoque no sistema no momento: ${resposta.estoqueAtual} ${produto.unidade}.`);
+        const resposta = await api<{ estoqueAtual: number }>(
+          `/produtos/${produto.id}/estoque`,
+        );
+        setAvisoEstoqueServidor(
+          `Estoque no sistema no momento: ${resposta.estoqueAtual} ${produto.unidade}.`,
+        );
       }
 
       await db.movimentacoes.add({
@@ -71,7 +87,11 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
 
       navigate("/", { state: { sucesso: `${TITULOS[tipo]} registrada.` } });
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível salvar. Tente de novo.");
+      setErro(
+        e instanceof Error
+          ? e.message
+          : "Não foi possível salvar. Tente de novo.",
+      );
     } finally {
       setSalvando(false);
     }
@@ -100,15 +120,24 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
       )}
 
       {avisoEstoqueServidor && (
-        <p className="text-sm bg-yellow-50 border border-yellow-200 rounded-lg p-3">{avisoEstoqueServidor}</p>
+        <p className="text-sm bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          {avisoEstoqueServidor}
+        </p>
       )}
       {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
       {produto && (
-        <button className="botao-grande" onClick={confirmar} disabled={salvando}>
+        <button
+          className="botao-grande"
+          onClick={confirmar}
+          disabled={salvando}
+        >
           {salvando ? "Salvando..." : "Confirmar"}
         </button>
       )}
+      <Link to="/" className="botao-medio block text-center bg-gray-700">
+        Sair
+      </Link>
     </div>
   );
 }
@@ -139,10 +168,15 @@ function ProdutoEscolhido(props: {
           <div className="font-medium">{props.produto.nome}</div>
           <div className="text-sm text-gray-500">
             {props.produto.categoriaNome}
-            {estoqueLocal !== null && ` · estoque conhecido: ${estoqueLocal} ${props.produto.unidade}`}
+            {estoqueLocal !== null &&
+              ` · estoque conhecido: ${estoqueLocal} ${props.produto.unidade}`}
           </div>
         </div>
-        <button type="button" className="text-sm underline" onClick={props.onTrocar}>
+        <button
+          type="button"
+          className="text-sm underline"
+          onClick={props.onTrocar}
+        >
           Trocar
         </button>
       </div>
@@ -152,7 +186,9 @@ function ProdutoEscolhido(props: {
         <select
           className="campo"
           value={props.motivo}
-          onChange={(e) => props.onMotivoChange(e.target.value as MotivoMovimentacao)}
+          onChange={(e) =>
+            props.onMotivoChange(e.target.value as MotivoMovimentacao)
+          }
         >
           {MOTIVOS_POR_TIPO[props.tipo].map((opcao) => (
             <option key={opcao.valor} value={opcao.valor}>
@@ -163,7 +199,9 @@ function ProdutoEscolhido(props: {
       </div>
 
       <div>
-        <label className="block text-sm mb-1">Quantidade ({props.produto.unidade})</label>
+        <label className="block text-sm mb-1">
+          Quantidade ({props.produto.unidade})
+        </label>
         <input
           className="campo"
           inputMode="decimal"
@@ -173,7 +211,8 @@ function ProdutoEscolhido(props: {
         />
         {props.quantidadeGrande && (
           <p className="text-sm text-amber-700 mt-1">
-            Quantidade acima de {props.limite}: vai precisar de internet pra confirmar.
+            Quantidade acima de {props.limite}: vai precisar de internet pra
+            confirmar.
           </p>
         )}
       </div>

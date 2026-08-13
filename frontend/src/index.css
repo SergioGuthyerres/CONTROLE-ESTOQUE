@@ -9,6 +9,9 @@
     @apply w-full rounded-xl px-6 py-5 text-xl font-semibold text-white
       bg-marca active:scale-[0.98] transition disabled:opacity-40;
   }
+  .botao-medio {
+    @apply w-auto rounded-lg px-6 py-5 text-sm font-semibold text-white bg-marca active:scale-[0.98] transition disabled:opacity-40;
+  }
   .campo {
     @apply w-full rounded-lg border border-gray-300 px-4 py-3 text-lg
       focus:outline-none focus:ring-2 focus:ring-marca;

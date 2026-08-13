@@ -3,14 +3,17 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import { api, ErroApi } from "../lib/api";
 import { baixarCatalogo } from "../lib/sync";
-
+import { Link } from "react-router-dom";
 // Cadastro de categoria exige internet — é uma ação rara (não é o dia a dia
 // como entrada/saída), então não vale a complexidade de fazer offline.
 export function CadastroCategoria() {
   const [nome, setNome] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
-  const categorias = useLiveQuery(() => db.categorias.orderBy("nome").toArray(), []);
+  const categorias = useLiveQuery(
+    () => db.categorias.orderBy("nome").toArray(),
+    [],
+  );
 
   async function aoEnviar(evento: FormEvent) {
     evento.preventDefault();
@@ -18,13 +21,18 @@ export function CadastroCategoria() {
     setErro(null);
 
     if (!navigator.onLine) {
-      setErro("Sem internet no momento — cadastro de categoria precisa estar online.");
+      setErro(
+        "Sem internet no momento — cadastro de categoria precisa estar online.",
+      );
       return;
     }
 
     setSalvando(true);
     try {
-      await api("/categorias", { method: "POST", body: JSON.stringify({ nome: nome.trim() }) });
+      await api("/categorias", {
+        method: "POST",
+        body: JSON.stringify({ nome: nome.trim() }),
+      });
       await baixarCatalogo();
       setNome("");
     } catch (e) {
@@ -59,6 +67,9 @@ export function CadastroCategoria() {
           </li>
         ))}
       </ul>
+      <Link to="/" className="botao-medio block text-center bg-gray-700">
+        Sair
+      </Link>
     </div>
   );
 }

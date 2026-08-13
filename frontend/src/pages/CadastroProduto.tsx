@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Unidade } from "../db/db";
 import { api, ErroApi } from "../lib/api";
 import { baixarCatalogo } from "../lib/sync";
-
+import { Link } from "react-router-dom";
 const UNIDADES: Unidade[] = ["kg", "L"];
 
 // Também exige internet (mesma lógica de CadastroCategoria.tsx).
@@ -15,7 +15,10 @@ export function CadastroProduto() {
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
-  const categorias = useLiveQuery(() => db.categorias.orderBy("nome").toArray(), []);
+  const categorias = useLiveQuery(
+    () => db.categorias.orderBy("nome").toArray(),
+    [],
+  );
 
   async function aoEnviar(evento: FormEvent) {
     evento.preventDefault();
@@ -26,7 +29,9 @@ export function CadastroProduto() {
     setErro(null);
 
     if (!navigator.onLine) {
-      setErro("Sem internet no momento — cadastro de produto precisa estar online.");
+      setErro(
+        "Sem internet no momento — cadastro de produto precisa estar online.",
+      );
       return;
     }
 
@@ -54,7 +59,9 @@ export function CadastroProduto() {
   if (categorias && categorias.length === 0) {
     return (
       <div className="pt-2">
-        <p className="text-gray-600">Cadastre uma categoria antes de cadastrar produtos.</p>
+        <p className="text-gray-600">
+          Cadastre uma categoria antes de cadastrar produtos.
+        </p>
       </div>
     );
   }
@@ -66,12 +73,21 @@ export function CadastroProduto() {
       <form onSubmit={aoEnviar} className="cartao space-y-3">
         <div>
           <label className="block text-sm mb-1">Nome</label>
-          <input className="campo" value={nome} onChange={(e) => setNome(e.target.value)} autoFocus />
+          <input
+            className="campo"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            autoFocus
+          />
         </div>
 
         <div>
           <label className="block text-sm mb-1">Categoria</label>
-          <select className="campo" value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
+          <select
+            className="campo"
+            value={categoriaId}
+            onChange={(e) => setCategoriaId(e.target.value)}
+          >
             <option value="">Selecione...</option>
             {categorias?.map((c) => (
               <option key={c.id} value={c.id}>
@@ -83,7 +99,11 @@ export function CadastroProduto() {
 
         <div>
           <label className="block text-sm mb-1">Unidade</label>
-          <select className="campo" value={unidade} onChange={(e) => setUnidade(e.target.value as Unidade)}>
+          <select
+            className="campo"
+            value={unidade}
+            onChange={(e) => setUnidade(e.target.value as Unidade)}
+          >
             {UNIDADES.map((u) => (
               <option key={u} value={u}>
                 {u === "kg" ? "kg (inclui fardo/saco)" : "L"}
@@ -106,6 +126,9 @@ export function CadastroProduto() {
         <button className="botao-grande" disabled={salvando}>
           {salvando ? "Salvando..." : "Salvar"}
         </button>
+        <Link to="/" className="botao-medio block text-center bg-gray-700">
+          Sair
+        </Link>
       </form>
     </div>
   );
