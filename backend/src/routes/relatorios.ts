@@ -2,12 +2,13 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { exigirAutenticacao, exigirPerfil } from "../middleware/auth";
 import { calcularValorTotalEstoque } from "../services/stockService";
+import { assincrono } from "../middleware/erros";
 
 export const relatoriosRouter = Router();
 relatoriosRouter.use(exigirAutenticacao, exigirPerfil("admin"));
 
 // RF11: produtos mais/menos movimentados num período (soma de entrada+saida).
-relatoriosRouter.get("/movimentacao-por-produto", async (req, res) => {
+relatoriosRouter.get("/movimentacao-por-produto", assincrono(async (req, res) => {
   const dataInicio = typeof req.query.dataInicio === "string" ? new Date(req.query.dataInicio) : undefined;
   const dataFim = typeof req.query.dataFim === "string" ? new Date(req.query.dataFim) : undefined;
 
@@ -36,10 +37,10 @@ relatoriosRouter.get("/movimentacao-por-produto", async (req, res) => {
     .sort((a, b) => b.totalMovimentado - a.totalMovimentado);
 
   res.json(resultado);
-});
+}));
 
 // RF12: valor total em estoque, por produto e consolidado.
-relatoriosRouter.get("/valor-total-estoque", async (_req, res) => {
+relatoriosRouter.get("/valor-total-estoque", assincrono(async (_req, res) => {
   const resultado = await calcularValorTotalEstoque();
   res.json(resultado);
-});
+}));

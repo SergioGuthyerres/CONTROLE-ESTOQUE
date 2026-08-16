@@ -1,31 +1,23 @@
-import express from "express";
-import cors from "cors";
+import { criarApp } from "./app";
 import { env } from "./lib/env";
-import { authRouter } from "./routes/auth";
-import { categoriasRouter } from "./routes/categorias";
-import { produtosRouter } from "./routes/produtos";
-import { movimentacoesRouter } from "./routes/movimentacoes";
-import { alertasRouter } from "./routes/alertas";
-import { relatoriosRouter } from "./routes/relatorios";
-import { dashboardRouter } from "./routes/dashboard";
-import { configRouter } from "./routes/config";
+import { prisma } from "./lib/prisma";
 
-const app = express();
+const app = criarApp();
 
-app.use(cors({ origin: env.frontendUrl }));
-app.use(express.json());
-
-app.get("/health", (_req, res) => res.json({ ok: true }));
-
-app.use("/auth", authRouter);
-app.use("/categorias", categoriasRouter);
-app.use("/produtos", produtosRouter);
-app.use("/movimentacoes", movimentacoesRouter);
-app.use("/alertas", alertasRouter);
-app.use("/relatorios", relatoriosRouter);
-app.use("/dashboard", dashboardRouter);
-app.use("/config", configRouter);
-
-app.listen(env.port, () => {
-  console.log(`API rodando em http://localhost:${env.port}`);
+const servidor = app.listen(env.port, env.host, () => {
+  console.log(`API (${env.nodeEnv}) ouvindo em ${env.host}:${env.port}`);
 });
+
+// O systemd manda SIGTERM em cada "restart"/"stop". Sem fechar a conexão do
+// Prisma, o SQLite pode ficar com o journal aberto e o próximo start reclamar.
+for (const sinal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(sinal, () => {
+    console.log(`${sinal} recebido, encerrando...`);
+    servidor.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+    // Se alguma conexão travar, não deixa o processo pendurado para sempre.
+    setTimeout(() => process.exit(1), 10_000).unref();
+  });
+}

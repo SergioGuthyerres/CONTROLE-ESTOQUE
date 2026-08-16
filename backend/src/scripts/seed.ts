@@ -1,9 +1,26 @@
-// Popula o banco com usuários e alguns produtos de exemplo para dev/testes.
+// Popula o banco com usuários e produtos de exemplo — SOMENTE para dev/testes.
 // Rodar com: npm run seed
+//
+// As senhas abaixo estão num repositório público. Elas existem só para não
+// atrapalhar quem está desenvolvendo; em produção o usuário do dono é criado
+// por `npm run criar-admin`, com senha que ninguém mais conhece.
 import { prisma } from "../lib/prisma";
-import { gerarHashSenha } from "../services/authService";
+import { env } from "../lib/env";
+import { gerarHashSenha } from "../lib/senha";
 
 async function main() {
+  // Este bloqueio é o que separa "senha de exemplo" de "porta aberta em
+  // produção". Sem ele, um `npm run seed` distraído no servidor recria o
+  // usuário admin/admin123 — que está documentado publicamente no README.
+  if (env.emProducao) {
+    console.error(
+      "\nRecusando rodar o seed com NODE_ENV=production.\n" +
+        "Ele cria usuários com senhas de exemplo que são públicas neste repositório.\n" +
+        "Para criar o usuário dos donos em produção use: npm run criar-admin\n"
+    );
+    process.exit(1);
+  }
+
   const senhaAdmin = await gerarHashSenha("admin123");
   const senhaFuncionario = await gerarHashSenha("func123");
 

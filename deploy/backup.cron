@@ -1,0 +1,17 @@
+# Backup diário do banco (RF16/RNF04).
+#
+# Instalar:
+#   sudo cp deploy/backup.cron /etc/cron.d/estoque-backup
+#   sudo chmod 644 /etc/cron.d/estoque-backup
+#
+# Conferir depois do primeiro dia:
+#   ls -lh /var/backups/estoque
+#   grep estoque /var/log/syslog | tail
+
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+
+# 3h da manhã: a loja está fechada, ninguém está sincronizando movimentação.
+# O comando roda como o usuário "estoque" — o mesmo dono do banco.
+0 3 * * * estoque cd /opt/estoque/backend && set -a && . /etc/estoque/api.env && set +a && /usr/bin/node dist/scripts/backup.js >> /var/log/estoque-backup.log 2>&1

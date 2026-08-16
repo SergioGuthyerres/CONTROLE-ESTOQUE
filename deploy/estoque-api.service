@@ -1,0 +1,69 @@
+# Serviço systemd da API.
+#
+# Instalar:
+#   sudo cp deploy/estoque-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now estoque-api
+#
+# Ver o que está acontecendo:
+#   sudo systemctl status estoque-api
+#   sudo journalctl -u estoque-api -f
+
+[Unit]
+Description=API do Estoque Casa do Campo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Usuário dedicado, sem shell e sem sudo. Se a API for comprometida, o atacante
+# entra como "estoque" — que não tem permissão para nada além da própria pasta.
+# Criar com: sudo useradd --system --home /opt/estoque --shell /usr/sbin/nologin estoque
+User=estoque
+Group=estoque
+
+WorkingDirectory=/opt/estoque/backend
+# Ajustar se o node estiver em outro caminho (verificar com: which node)
+ExecStart=/usr/bin/node dist/server.js
+
+# O .env fica fora do diretório da aplicação e com permissão 600 para o usuário
+# estoque. É onde está o JWT_SECRET — quem lê esse arquivo forja qualquer sessão.
+EnvironmentFile=/etc/estoque/api.env
+
+Restart=always
+RestartSec=5
+
+# Se a API estiver reiniciando em loop (ex: .env inválido), para de tentar
+# depois de 5 vezes em 60s em vez de esconder o problema num loop infinito.
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# --- Isolamento ---
+# Impede que o processo ganhe privilégios novos (ex: via binário setuid).
+NoNewPrivileges=true
+# Sistema de arquivos somente leitura, exceto o que for listado em ReadWritePaths.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# As duas únicas pastas em que a API precisa escrever: o banco SQLite e os
+# backups. Qualquer tentativa de escrever em outro lugar falha.
+ReadWritePaths=/opt/estoque/backend/prisma /var/backups/estoque
+
+# Limites de recurso — a VPS free tier tem pouca memória e um vazamento não
+# pode derrubar a máquina inteira junto.
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

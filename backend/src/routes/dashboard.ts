@@ -3,12 +3,13 @@ import { prisma } from "../lib/prisma";
 import { exigirAutenticacao, exigirPerfil } from "../middleware/auth";
 import { calcularValorTotalEstoque } from "../services/stockService";
 import { listarAlertas } from "../services/alertService";
+import { assincrono } from "../middleware/erros";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(exigirAutenticacao, exigirPerfil("admin"));
 
 // RF08: indicadores + alertas para a tela inicial do admin.
-dashboardRouter.get("/", async (_req, res) => {
+dashboardRouter.get("/", assincrono(async (_req, res) => {
   const trintaDiasAtras = new Date();
   trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
 
@@ -25,4 +26,4 @@ dashboardRouter.get("/", async (_req, res) => {
     movimentacoesUltimos30Dias,
     alertas,
   });
-});
+}));

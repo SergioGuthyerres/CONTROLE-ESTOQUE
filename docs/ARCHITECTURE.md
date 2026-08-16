@@ -59,6 +59,9 @@ variável de ambiente do backend.
 | Adicionar um novo motivo de movimentação | `backend/src/lib/enums.ts` (`MOTIVOS_MOVIMENTACAO`, `MOTIVOS_POR_TIPO`) + espelhar em `frontend/src/lib/enums.ts` |
 | Mudar o texto/aparência de uma tela | `frontend/src/pages/*.tsx` — estilo vem das classes utilitárias em `frontend/src/index.css` (`.botao-grande`, `.campo`, `.cartao`) |
 | Adicionar um relatório novo | `backend/src/routes/relatorios.ts` + tela em `frontend/src/pages/admin/Relatorios.tsx` |
+| Mudar regra de sessão, permissão ou senha | `backend/src/middleware/auth.ts` (quem passa), `backend/src/services/authService.ts` (token), `backend/src/lib/senha.ts` (força da senha) — e rodar `npm test` |
+| Adicionar uma rota nova | Sempre embrulhar handler `async` em `assincrono(...)` de `backend/src/middleware/erros.ts` — sem isso, um erro do Prisma deixa a requisição pendurada (Express 4 não captura promise rejeitada) |
+| Publicar uma mudança em produção | `deploy/README-DEPLOY.md`, seção "Atualizando o sistema depois" |
 
 ## Coisas que foram decididas de propósito e podem parecer estranhas
 
@@ -67,6 +70,16 @@ variável de ambiente do backend.
   (`calcularValorTotalEstoque`), não um campo `preco`.
 - **SQLite no backend, não Postgres.** Orçamento zero + volume pequeno
   (50+ produtos, 50-150 mov/dia) não justificam a complexidade operacional
-  de um banco separado. Backup é só copiar o arquivo (`npm run backup`).
+  de um banco separado. O backup (`npm run backup`) usa `VACUUM INTO` em vez de
+  copiar o arquivo — copiar um SQLite em uso gera backup possivelmente corrompido.
+- **Token de 30 dias, mas verificado no banco a cada requisição.** A validade
+  longa vem do RNF05 (login frequente é atrito para o público do sistema); a
+  consulta por requisição é o que permite revogar acesso na hora via
+  `Usuario.ativo` e `Usuario.tokenVersion`. Nesta escala o custo é irrelevante.
+- **Token guardado em `localStorage`, não em cookie httpOnly.** O PWA e a API
+  ficam em domínios diferentes (Cloudflare Pages e VPS), o que tornaria o cookie
+  bem mais complicado. A contrapartida é a CSP restritiva gerada em
+  `frontend/scripts/gerar-headers.mjs`, que bloqueia script de terceiro — se um
+  dia o app e a API forem servidos do mesmo domínio, vale migrar para cookie.
 - **PWA, não app nativo.** Distribuir na App Store exige conta paga da Apple
   (~US$99/ano), o que contradiz o orçamento quase zero do projeto.

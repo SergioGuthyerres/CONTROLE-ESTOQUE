@@ -4,13 +4,14 @@ import { prisma } from "../lib/prisma";
 import { exigirAutenticacao } from "../middleware/auth";
 import { calcularEstoque, calcularEstoqueEmLote } from "../services/stockService";
 import { UNIDADES } from "../lib/enums";
+import { assincrono } from "../middleware/erros";
 
 export const produtosRouter = Router();
 produtosRouter.use(exigirAutenticacao);
 
 // RF06: busca textual única por nome/descrição — sem atalhos nem categorias
 // como filtro obrigatório, decisão da seção 5.1 do documento de visão.
-produtosRouter.get("/", async (req, res) => {
+produtosRouter.get("/", assincrono(async (req, res) => {
   const busca = typeof req.query.busca === "string" ? req.query.busca : undefined;
 
   const produtos = await prisma.produto.findMany({
@@ -27,17 +28,17 @@ produtosRouter.get("/", async (req, res) => {
       estoqueAtual: estoquePorProduto[produto.id] ?? 0,
     }))
   );
-});
+}));
 
 // RF07/5.2: usado pelo app antes de confirmar uma saída grande (>20 unidades)
 // para conferir o estoque real no servidor, não o local do dispositivo.
-produtosRouter.get("/:id/estoque", async (req, res) => {
+produtosRouter.get("/:id/estoque", assincrono(async (req, res) => {
   const produto = await prisma.produto.findUnique({ where: { id: req.params.id } });
   if (!produto) return res.status(404).json({ erro: "Produto não encontrado" });
 
   const estoqueAtual = await calcularEstoque(produto.id);
   res.json({ produtoId: produto.id, estoqueAtual });
-});
+}));
 
 const produtoSchema = z.object({
   nome: z.string().min(1),
@@ -46,15 +47,15 @@ const produtoSchema = z.object({
   estoqueMinimo: z.number().nonnegative().default(0),
 });
 
-produtosRouter.post("/", async (req, res) => {
+produtosRouter.post("/", assincrono(async (req, res) => {
   const parse = produtoSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
 
   const produto = await prisma.produto.create({ data: parse.data });
   res.status(201).json(produto);
-});
+}));
 
-produtosRouter.put("/:id", async (req, res) => {
+produtosRouter.put("/:id", assincrono(async (req, res) => {
   const parse = produtoSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
 
@@ -63,4 +64,4 @@ produtosRouter.put("/:id", async (req, res) => {
     data: parse.data,
   });
   res.json(produto);
-});
+}));

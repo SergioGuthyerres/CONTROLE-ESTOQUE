@@ -3,6 +3,7 @@ import { AuthProvider } from "./lib/auth";
 import { RotaProtegida } from "./components/RotaProtegida";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
+import { TrocarSenha } from "./pages/TrocarSenha";
 import { Home } from "./pages/Home";
 import { TelaMovimentacao } from "./pages/TelaMovimentacao";
 import { CadastroProduto } from "./pages/CadastroProduto";
@@ -10,6 +11,7 @@ import { CadastroCategoria } from "./pages/CadastroCategoria";
 import { Dashboard } from "./pages/admin/Dashboard";
 import { Relatorios } from "./pages/admin/Relatorios";
 import { Historico } from "./pages/admin/Historico";
+import { Usuarios } from "./pages/admin/Usuarios";
 
 export function App() {
   return (
@@ -17,6 +19,12 @@ export function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+
+          {/* Fora do Layout e sem exigir senha definitiva: é a única tela que
+              quem tem senha provisória consegue abrir. */}
+          <Route element={<RotaProtegida permitirSenhaProvisoria />}>
+            <Route path="/trocar-senha" element={<TrocarSenha />} />
+          </Route>
 
           <Route element={<RotaProtegida />}>
             <Route element={<Layout />}>
@@ -36,6 +44,7 @@ export function App() {
                 <Route path="/admin/dashboard" element={<Dashboard />} />
                 <Route path="/admin/relatorios" element={<Relatorios />} />
                 <Route path="/admin/historico" element={<Historico />} />
+                <Route path="/admin/usuarios" element={<Usuarios />} />
               </Route>
             </Route>
           </Route>

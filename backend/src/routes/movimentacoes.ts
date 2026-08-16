@@ -3,20 +3,41 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { exigirAutenticacao, exigirPerfil } from "../middleware/auth";
 import { MOTIVOS_POR_TIPO, TIPOS_MOVIMENTACAO, MOTIVOS_MOVIMENTACAO } from "../lib/enums";
+import { assincrono } from "../middleware/erros";
 
 export const movimentacoesRouter = Router();
 movimentacoesRouter.use(exigirAutenticacao);
 
+// A data vem do relógio do celular, não do servidor — é o preço de aceitar
+// lançamento offline (RNF02). Mas sem limite nenhum um cliente adulterado
+// consegue plantar movimentação com data de 2019 ou de 2030 e sujar todo o
+// histórico e os relatórios por período (RF11/RF13). A folga cobre relógio
+// desregulado e celular que ficou dias sem internet; fora disso, recusa.
+const TOLERANCIA_FUTURO_MS = 24 * 60 * 60 * 1000; // 1 dia
+const TOLERANCIA_PASSADO_MS = 90 * 24 * 60 * 60 * 1000; // 90 dias
+
 const movimentacaoSchema = z
   .object({
     id: z.string().uuid(), // gerado no cliente — permite sincronização idempotente
-    produtoId: z.string().min(1),
+    produtoId: z.string().min(1).max(60),
     tipo: z.enum(TIPOS_MOVIMENTACAO),
     motivo: z.enum(MOTIVOS_MOVIMENTACAO),
-    quantidade: z.number().positive(),
-    valor: z.number().nonnegative().default(0),
-    origemDispositivo: z.string().min(1),
-    criadoEm: z.coerce.date(),
+    // Teto de sanidade: o maior lançamento plausível da loja está muito abaixo
+    // disso, e sem teto um erro de digitação (ou um cliente adulterado) faz o
+    // estoque e o valor total do RF12 explodirem.
+    quantidade: z.number().positive().finite().max(1_000_000),
+    valor: z.number().nonnegative().finite().max(10_000_000).default(0),
+    origemDispositivo: z.string().min(1).max(100),
+    criadoEm: z.coerce
+      .date()
+      .refine(
+        (data) => data.getTime() <= Date.now() + TOLERANCIA_FUTURO_MS,
+        "Data da movimentação está no futuro — verifique a data e a hora do aparelho"
+      )
+      .refine(
+        (data) => data.getTime() >= Date.now() - TOLERANCIA_PASSADO_MS,
+        "Data da movimentação é antiga demais (mais de 90 dias) para ser sincronizada"
+      ),
   })
   .refine((dado) => MOTIVOS_POR_TIPO[dado.tipo].includes(dado.motivo), {
     message: "Motivo não é válido para o tipo informado",
@@ -31,7 +52,7 @@ const syncSchema = z.object({
 // única feita online quanto para um lote acumulado offline. Sempre insere
 // (nunca update/delete, ver docs/documento-de-visao.md seção 5.2) e é
 // idempotente por "id": reenviar o mesmo lote (ex: retry de rede) não duplica.
-movimentacoesRouter.post("/sync", async (req, res) => {
+movimentacoesRouter.post("/sync", assincrono(async (req, res) => {
   const parse = syncSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
 
@@ -48,10 +69,10 @@ movimentacoesRouter.post("/sync", async (req, res) => {
   );
 
   res.status(201).json({ sincronizadas: resultados.length });
-});
+}));
 
 // RF13: histórico/auditoria, somente leitura, só admin.
-movimentacoesRouter.get("/", exigirPerfil("admin"), async (req, res) => {
+movimentacoesRouter.get("/", exigirPerfil("admin"), assincrono(async (req, res) => {
   const produtoId = typeof req.query.produtoId === "string" ? req.query.produtoId : undefined;
   const pagina = Math.max(1, Number(req.query.pagina ?? 1));
   const porPagina = 50;
@@ -65,4 +86,4 @@ movimentacoesRouter.get("/", exigirPerfil("admin"), async (req, res) => {
   });
 
   res.json(movimentacoes);
-});
+}));

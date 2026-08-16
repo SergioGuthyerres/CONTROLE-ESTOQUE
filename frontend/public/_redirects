@@ -1,0 +1,5 @@
+# O app é uma SPA: /entrada, /admin/dashboard etc. não são arquivos no disco.
+# Sem esta regra, o Cloudflare Pages devolve 404 quando alguém abre o app já
+# numa rota interna — o que acontece toda vez que o PWA instalado é reaberto
+# ou o funcionário atualiza a página.
+/*    /index.html   200

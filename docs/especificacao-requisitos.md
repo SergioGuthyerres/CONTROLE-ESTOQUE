@@ -48,6 +48,9 @@ erDiagram
         string nome
         string senha_hash
         string perfil "funcionario | admin"
+        bool ativo "false encerra o acesso sem apagar o histórico"
+        int token_version "incrementar invalida as sessões abertas"
+        bool precisa_trocar_senha "senha provisória definida por um admin"
     }
     CATEGORIA {
         uuid id PK

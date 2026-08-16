@@ -1,0 +1,39 @@
+# Caddy na frente da API.
+#
+# O Caddy resolve sozinho a parte mais chata do deploy: certificado TLS do
+# Let's Encrypt, renovação automática e redirecionamento de HTTP para HTTPS.
+# Isso não é opcional aqui — o PWA é servido em HTTPS pelo Cloudflare Pages, e
+# um site HTTPS não tem permissão de chamar uma API em HTTP puro. Sem
+# certificado na API, o app simplesmente não funciona no celular.
+#
+# Instalar:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   (trocar api.SEU-DOMINIO.com abaixo pelo domínio real)
+#   sudo systemctl reload caddy
+
+api.SEU-DOMINIO.com {
+	# A API escuta só em 127.0.0.1 (ver HOST no .env): nada fala com ela
+	# diretamente de fora, só através deste proxy.
+	reverse_proxy 127.0.0.1:3000
+
+	# Sem isto o rate limit da API enxerga apenas o IP do Caddy e trata o
+	# mundo inteiro como um visitante só. Combina com TRUST_PROXY=true no .env.
+	header_up X-Forwarded-For {remote_host}
+
+	encode gzip
+
+	# Segurança de transporte. Os cabeçalhos do app em si ficam no Cloudflare
+	# Pages (frontend/scripts/gerar-headers.mjs); estes valem para a API.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/estoque-api.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

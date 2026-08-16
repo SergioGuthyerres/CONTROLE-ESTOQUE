@@ -21,6 +21,7 @@ Antes de mexer no código, ler nesta ordem:
 ```
 backend/   API (Node + Express + Prisma + SQLite) — ver backend/README.md
 frontend/  PWA (React + Vite + Dexie) — ver frontend/README.md
+deploy/    Arquivos e guia de produção — ver deploy/README-DEPLOY.md
 docs/      Documentos de produto e arquitetura
 ```
 
@@ -47,6 +48,26 @@ npm run dev            # http://localhost:5173
 Login de teste (criado pelo seed): `admin` / `admin123` (perfil admin) ou
 `funcionario` / `func123` (perfil funcionário).
 
+> ⚠️ **Essas credenciais valem só em desenvolvimento.** Elas estão publicadas
+> aqui, num repositório público — qualquer pessoa as conhece. O `npm run seed`
+> se recusa a rodar com `NODE_ENV=production`, e essas senhas são recusadas
+> pelo validador se alguém tentar reutilizá-las. Em produção, o usuário dos
+> donos é criado por `npm run criar-admin`, com senha digitada por eles.
+
+## Colocando em produção
+
+O passo a passo completo está em
+[deploy/README-DEPLOY.md](deploy/README-DEPLOY.md): VPS gratuita com HTTPS,
+publicação do PWA, criação segura do usuário dos donos, backup automático e um
+checklist de segurança para conferir antes de entregar ao cliente.
+
+Testes das regras de segurança (sessão, permissão, força bruta, senha
+provisória):
+
+```bash
+cd backend && npm test
+```
+
 ## Estado atual
 
 MVP definido em docs/especificacao-requisitos.md (RF01–RF16) implementado:
@@ -59,9 +80,7 @@ arquivo.
 ## Próximos passos
 
 - Testar o fluxo completo num navegador (login → entrada → saída → dashboard)
-- Deploy do backend numa VPS gratuita (ver backend/README.md, seção Deploy)
-- Publicar o frontend em algum host estático gratuito com HTTPS (necessário
-  pra PWA funcionar fora de localhost) e testar a instalação real no celular
-  do funcionário (Android e iPhone)
+- Executar o deploy seguindo [deploy/README-DEPLOY.md](deploy/README-DEPLOY.md)
+  e testar a instalação real no celular do funcionário (Android e iPhone)
 - Definir identidade visual definitiva com o cliente (seção 7 do documento
   de visão)

@@ -1,0 +1,12 @@
+# Segredos e artefatos que nunca podem ir para o repositório público.
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+backups/
+node_modules/
+dist/
+.DS_Store

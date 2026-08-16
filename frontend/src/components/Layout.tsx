@@ -18,6 +18,9 @@ export function Layout() {
               Painel
             </Link>
           )}
+          <Link to="/trocar-senha" className="underline">
+            Senha
+          </Link>
           <button onClick={sair} className="underline">
             Sair
           </button>

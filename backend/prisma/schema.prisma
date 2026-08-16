@@ -15,10 +15,27 @@ datasource db {
 }
 
 model Usuario {
-  id            String         @id @default(uuid())
-  nome          String         @unique
-  senhaHash     String
-  perfil        String // "funcionario" | "admin" — ver src/lib/enums.ts
+  id        String @id @default(uuid())
+  nome      String @unique
+  senhaHash String
+  perfil    String // "funcionario" | "admin" — ver src/lib/enums.ts
+
+  // O token JWT dura 30 dias (RNF05: refazer login toda hora é atrito para
+  // quem tem baixa maturidade digital). O preço disso é que um celular
+  // perdido continua autenticado por 30 dias. Estes três campos são o
+  // contrapeso — ver src/middleware/auth.ts:
+  //
+  // ativo: desliga o acesso de um funcionário que saiu, sem apagar o
+  //   usuário (as movimentações dele são registro de auditoria e não podem
+  //   perder o autor — ver docs/documento-de-visao.md seção 5.2).
+  // tokenVersion: incrementar invalida TODOS os tokens já emitidos para
+  //   esse usuário. É o "deslogar de todos os aparelhos".
+  // precisaTrocarSenha: senha definida por outra pessoa (admin criou ou
+  //   resetou) só serve para uma coisa — trocar a própria senha.
+  ativo              Boolean @default(true)
+  tokenVersion       Int     @default(0)
+  precisaTrocarSenha Boolean @default(false)
+
   criadoEm      DateTime       @default(now())
   movimentacoes Movimentacao[]
 }
