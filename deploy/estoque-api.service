@@ -14,6 +14,14 @@ Description=API do Estoque Casa do Campo
 After=network-online.target
 Wants=network-online.target
 
+# Se a API estiver reiniciando em loop (ex: .env inválido), o systemd desiste
+# depois de 5 tentativas em 60s e marca o serviço como "failed", em vez de
+# esconder o problema num loop infinito de "active (running)".
+# Estas duas chaves pertencem a [Unit] — em [Service] são silenciosamente
+# ignoradas (verificável com: systemd-analyze verify).
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
 [Service]
 Type=simple
 
@@ -34,11 +42,6 @@ EnvironmentFile=/etc/estoque/api.env
 Restart=always
 RestartSec=5
 
-# Se a API estiver reiniciando em loop (ex: .env inválido), para de tentar
-# depois de 5 vezes em 60s em vez de esconder o problema num loop infinito.
-StartLimitBurst=5
-StartLimitIntervalSec=60
-
 # --- Isolamento ---
 # Impede que o processo ganhe privilégios novos (ex: via binário setuid).
 NoNewPrivileges=true
@@ -53,16 +56,27 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
-MemoryDenyWriteExecute=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# NÃO adicione MemoryDenyWriteExecute=true aqui.
+#
+# Essa opção impede o processo de tornar memória executável — o que é uma boa
+# defesa para um binário comum, mas é exatamente o que o V8 precisa fazer: o
+# motor do Node compila JavaScript para código de máquina em tempo de execução.
+# Com ela ligada, o Node morre no boot com "Check failed: 12 ==
+# (*__errno_location ())" e uma pilha nativa gigante terminando em
+# v8::base::OS::SetPermissions — mensagem que não sugere em nada a causa real.
+# Vale para qualquer runtime com JIT (Node, JVM, .NET).
 
 # As duas únicas pastas em que a API precisa escrever: o banco SQLite e os
 # backups. Qualquer tentativa de escrever em outro lugar falha.
 ReadWritePaths=/opt/estoque/backend/prisma /var/backups/estoque
 
-# Limites de recurso — a VPS free tier tem pouca memória e um vazamento não
-# pode derrubar a máquina inteira junto.
-MemoryMax=512M
+# Limites de recurso — um vazamento na API não pode derrubar a máquina junto.
+# 1 GB porque não é só o Node: o Prisma sobe um processo separado (a query
+# engine, em Rust) dentro deste mesmo cgroup. Com folga curta demais, o
+# estouro aparece como um "Killed" sem explicação no journal.
+MemoryMax=1G
 TasksMax=64
 
 [Install]
