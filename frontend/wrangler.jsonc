@@ -18,7 +18,12 @@
     // O app é uma SPA: /entrada, /admin/dashboard etc. não são arquivos no
     // disco. Sem isto, abrir o PWA já instalado direto numa rota interna
     // devolveria 404 — o que acontece toda vez que o funcionário reabre o app
-    // ou atualiza a página. Equivale ao antigo public/_redirects do Pages.
+    // ou atualiza a página.
+    //
+    // É ESTA opção que cuida do roteamento da SPA aqui. NÃO recrie o antigo
+    // public/_redirects com a regra "/*  /index.html  200": no Pages ela era
+    // necessária, mas o Workers a recusa na validação do deploy, com
+    // "Infinite loop detected in this rule".
     "not_found_handling": "single-page-application"
   }
 
