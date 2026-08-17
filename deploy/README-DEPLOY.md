@@ -419,15 +419,41 @@ de movimentações da pessoa (o registro é de auditoria e nunca é apagado).
 ```bash
 sudo cp /opt/estoque/deploy/backup.cron /etc/cron.d/estoque-backup
 sudo chmod 644 /etc/cron.d/estoque-backup
+
+# O arquivo de log precisa existir e pertencer ao usuário "estoque": /var/log
+# é do root, e o cron roda como estoque. Sem isto o redirecionamento ">>"
+# falha e leva o backup inteiro junto — silenciosamente, às 3h da manhã.
+sudo touch /var/log/estoque-backup.log
+sudo chown estoque:estoque /var/log/estoque-backup.log
+sudo chmod 640 /var/log/estoque-backup.log
 ```
+
+Teste a linha exata que o cron vai executar, em vez de esperar as 3h e torcer:
+
+```bash
+sudo -u estoque sh -c 'cd /opt/estoque/backend && set -a && . /etc/estoque/api.env && set +a && /usr/bin/node dist/scripts/backup.js >> /var/log/estoque-backup.log 2>&1' && echo "cron OK"
+```
+
+Isso reproduz usuário, shell e redirecionamento do cron. Se imprimir `cron OK`,
+o agendamento vai funcionar.
 
 Rode uma vez à mão para conferir que funciona, sem esperar até as 3h:
 
 ```bash
 cd /opt/estoque/backend
 sudo -u estoque bash -c 'set -a && . /etc/estoque/api.env && set +a && node dist/scripts/backup.js'
-ls -lh /var/backups/estoque
+sudo ls -lh /var/backups/estoque     # sudo: a pasta é 700 do usuário estoque
 ```
+
+E confirme que o arquivo gerado é um banco íntegro, não um arquivo truncado:
+
+```bash
+sudo apt install -y sqlite3
+sudo -u estoque sh -c 'sqlite3 "$(ls -t /var/backups/estoque/*.db | head -1)" "PRAGMA integrity_check; SELECT count(*) FROM Usuario;"'
+```
+
+Esperado: `ok` seguido do número de usuários cadastrados. Isso prova que o
+backup abre e tem dados — bem mais do que confirmar que o arquivo existe.
 
 O script mantém os 30 backups mais recentes e apaga os antigos — sem isso o
 disco enche e a API para de conseguir escrever.

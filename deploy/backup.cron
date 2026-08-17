@@ -4,9 +4,21 @@
 #   sudo cp deploy/backup.cron /etc/cron.d/estoque-backup
 #   sudo chmod 644 /etc/cron.d/estoque-backup
 #
+#   # O arquivo de log PRECISA existir e pertencer ao usuário "estoque".
+#   # /var/log pertence ao root e o usuário estoque não cria arquivo lá — sem
+#   # este passo, o redirecionamento ">>" falha, e como ele faz parte da mesma
+#   # linha de comando, o backup inteiro não roda. E o erro só apareceria no
+#   # log do cron, não aqui.
+#   sudo touch /var/log/estoque-backup.log
+#   sudo chown estoque:estoque /var/log/estoque-backup.log
+#   sudo chmod 640 /var/log/estoque-backup.log
+#
+# Testar a linha exata que o cron vai executar, sem esperar as 3h:
+#   sudo -u estoque sh -c 'cd /opt/estoque/backend && set -a && . /etc/estoque/api.env && set +a && /usr/bin/node dist/scripts/backup.js >> /var/log/estoque-backup.log 2>&1' && echo OK
+#
 # Conferir depois do primeiro dia:
-#   ls -lh /var/backups/estoque
-#   grep estoque /var/log/syslog | tail
+#   sudo ls -lh /var/backups/estoque      # a pasta é 700 do usuário estoque
+#   sudo tail /var/log/estoque-backup.log
 
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
