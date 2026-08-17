@@ -15,7 +15,9 @@
     "prisma:deploy": "prisma migrate deploy",
     "criar-admin:prod": "node dist/scripts/criarAdmin.js",
     "backup:prod": "node dist/scripts/backup.js",
-    "test": "tsx --test testes/*.test.ts"
+    "test": "tsx --test testes/*.test.ts",
+    "limpar-dados": "tsx src/scripts/limparDados.ts",
+    "limpar-dados:prod": "node dist/scripts/limparDados.js"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

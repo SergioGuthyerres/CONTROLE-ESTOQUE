@@ -491,6 +491,32 @@ suba a API localmente. Backup nunca testado é backup que costuma falhar no dia.
 
 ---
 
+## 8b. Limpar os dados de teste antes de entregar
+
+Depois de testar a aplicação com produtos e lançamentos inventados, o banco
+precisa ir zerado para o cliente — mas sem perder os usuários já criados (senão
+você refaz o `criar-admin` e redistribui as senhas dos funcionários).
+
+```bash
+cd /opt/estoque/backend
+
+# 1. Mostra o que seria apagado, sem apagar nada
+sudo -u estoque bash -c 'set -a && . /etc/estoque/api.env && set +a && node dist/scripts/limparDados.js'
+
+# 2. Confirmado o que aparece acima, executa
+sudo -u estoque bash -c 'set -a && . /etc/estoque/api.env && set +a && node dist/scripts/limparDados.js --confirmar'
+```
+
+O comando apaga movimentações, produtos e categorias, e preserva os usuários
+com senhas e perfis intactos. Ele **grava um backup antes** de apagar qualquer
+coisa; se o backup falhar, nada é apagado.
+
+Depois de limpar, **em cada celular que já usou o app, saia e entre de novo**.
+O PWA guarda um cache local do catálogo (RNF02, para funcionar offline) e
+continuaria mostrando os produtos de teste até a próxima sincronização.
+
+---
+
 ## 9. Atualizando o sistema depois
 
 O PWA atualiza sozinho: um `git push` na branch principal dispara o build no

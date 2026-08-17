@@ -32,6 +32,7 @@ senha as recusa. Em produção, ver `npm run criar-admin` e
 | `npm run seed` | Popula usuários e produtos de exemplo (só em dev) |
 | `npm run criar-admin -- --nome dona.maria` | Cria/reseta o admin dos donos com senha digitada sem eco |
 | `npm run backup` | Backup consistente do banco com rotação (RF16) |
+| `npm run limpar-dados` | Mostra o que seria apagado; com `-- --confirmar`, zera produtos/categorias/movimentações preservando usuários (faz backup antes) |
 
 Em produção, onde as dependências de desenvolvimento não são instaladas, use as
 versões compiladas: `npm run criar-admin:prod` e `npm run backup:prod`.
