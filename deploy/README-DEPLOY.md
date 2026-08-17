@@ -545,6 +545,8 @@ Antes de considerar o sistema entregue:
 | `node -v` mostra v18 e falta `npm` | O repositório da NodeSource não foi aplicado e ficou o pacote do Ubuntu, que não traz npm. Ver a seção 2. |
 | API não sobe | `sudo journalctl -u estoque-api -n 50`. Erro de `.env` sai com o nome da variável. |
 | API morre em loop com pilha do V8 e `signal=TRAP` | `MemoryDenyWriteExecute=true` no serviço systemd. O V8 compila JS para código de máquina e precisa tornar memória executável. Remover a linha. |
+| Deploy do PWA falha com `Infinite loop detected in this rule` | Um `public/_redirects` com `/* /index.html 200`. No Workers quem cobre a SPA é o `not_found_handling` do `wrangler.jsonc`; apagar o arquivo. |
+| Deploy do PWA falha pedindo Vite 6+ | O projeto foi criado como Worker sem o `frontend/wrangler.jsonc`, e o Cloudflare tentou aplicar o plugin Vite dele. Ver a seção 6. |
 | `npm run build` morre com "Killed" | Falta de memória no shape de 1 GB. Criar o swap da etapa 2. |
 | Comando `apt` não existe no servidor | A instância subiu com Oracle Linux em vez de Ubuntu. Recriar escolhendo Canonical Ubuntu em *Change image*. |
 | "Muitas tentativas de login" | Rate limit. Espere 15 minutos ou aumente `LOGIN_MAX_TENTATIVAS`. |
