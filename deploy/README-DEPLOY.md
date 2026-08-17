@@ -105,19 +105,36 @@ Caddy está quebrado:
 sua VCN → Security Lists → Default → Add Ingress Rules. Adicione duas regras
 com Source `0.0.0.0/0`, IP Protocol `TCP`, Destination Port `80` e `443`.
 
-**b) No firewall de dentro da máquina.** Conecte via SSH:
+**b) No firewall de dentro da máquina.** Primeiro conecte via SSH, **do seu
+computador**:
 
 ```bash
-ssh -i sua-chave.key ubuntu@IP-DA-INSTANCIA
+chmod 600 ssh-key-*.key                       # só precisa na primeira vez
+ssh -i ssh-key-*.key ubuntu@IP-PUBLICO-DA-INSTANCIA
 ```
 
-E rode:
+> **Use o IP público, não o privado.** Na página da instância aparecem dois
+> endereços. O **Private IPv4** começa com `10.` e só funciona dentro da rede
+> virtual da Oracle — tentar SSH nele dá "Operation timed out". O que você quer
+> é o **Public IPv4 address**, na seção *Instance access* / *Primary VNIC*.
+>
+> Se o campo Public IPv4 estiver vazio ou com `-`, a sub-rede criada foi privada
+> em vez de pública. O caminho mais rápido é apagar a instância e criar de novo
+> marcando **Create new public subnet** na etapa de Networking.
+
+Só **depois que o SSH conectar** (o prompt vira `ubuntu@nome-da-maquina:~$`) é
+que os comandos abaixo fazem sentido — eles rodam dentro do servidor Ubuntu,
+não no seu computador. Num Mac eles nem existem (`iptables: command not found`):
 
 ```bash
 sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
 sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
 sudo netfilter-persistent save
 ```
+
+Daqui em diante, **todo comando do guia roda dentro do servidor**, via SSH — a
+única exceção é o `rsync` de backup da seção 8, que é explicitamente marcado
+como "do seu próprio computador".
 
 Por fim, aponte o domínio para o IP público da instância (no DuckDNS, é só colar
 o IP no campo do subdomínio). Confirme antes de seguir:
@@ -441,6 +458,9 @@ Antes de considerar o sistema entregue:
 |---|---|
 | App abre mas nenhuma tela carrega dados | `FRONTEND_URL` não bate com o domínio do Pages (erro de CORS). Ver o console do navegador. |
 | `curl https://.../health` não conecta | Portas 80/443 liberadas só na Oracle **ou** só no `iptables` — precisa dos dois. |
+| SSH dá "Operation timed out" | Você usou o IP privado (`10.x.x.x`). Pegue o **Public IPv4** na página da instância. |
+| `sudo: iptables: command not found` | O comando foi rodado no seu Mac. Ele roda dentro do servidor, depois do SSH conectar. |
+| SSH recusa a chave ("bad permissions") | `chmod 600` no arquivo `.key` baixado. |
 | Caddy não emite certificado | Domínio ainda não aponta para o IP, ou porta 80 fechada (o desafio do Let's Encrypt usa a 80). |
 | API não sobe | `sudo journalctl -u estoque-api -n 50`. Erro de `.env` sai com o nome da variável. |
 | `npm run build` morre com "Killed" | Falta de memória no shape de 1 GB. Criar o swap da etapa 2. |
