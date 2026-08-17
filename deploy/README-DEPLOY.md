@@ -165,10 +165,16 @@ free -h        # deve mostrar 2 GB em "Swap"
 Em seguida, para qualquer shape:
 
 ```bash
-# Pacotes básicos e Node 20
+# Pacotes básicos
 sudo apt update && sudo apt upgrade -y
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs git
+sudo apt install -y git curl
+
+# Node 20 pelo repositório da NodeSource. O script é baixado para um arquivo
+# antes de rodar, em vez de "curl | bash": se o download falhar, o erro
+# aparece, em vez de o bash receber um texto vazio e não fazer nada.
+curl -fsSL https://deb.nodesource.com/setup_20.x -o /tmp/nodesource_setup.sh
+sudo -E bash /tmp/nodesource_setup.sh
+sudo apt install -y nodejs
 
 # Caddy (o servidor web que cuida do HTTPS sozinho)
 sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
@@ -177,6 +183,27 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
   | sudo tee /etc/apt/sources.list.d/caddy-stable.list
 sudo apt update && sudo apt install -y caddy
+```
+
+**Confira antes de seguir** — este é o ponto onde o deploy costuma descarrilar
+sem avisar:
+
+```bash
+node -v      # precisa ser v20.x — se aparecer v18, o repositório da
+             # NodeSource não foi aplicado e você está com o pacote do Ubuntu
+npm -v       # precisa responder algo; o pacote "nodejs" do Ubuntu NÃO traz npm
+caddy version
+```
+
+Se `node -v` mostrar v18 ou `npm` não existir, remova o pacote do Ubuntu e
+repita a instalação da NodeSource:
+
+```bash
+sudo apt remove -y nodejs npm libnode-dev
+sudo apt autoremove -y
+curl -fsSL https://deb.nodesource.com/setup_20.x -o /tmp/nodesource_setup.sh
+sudo -E bash /tmp/nodesource_setup.sh
+sudo apt install -y nodejs
 ```
 
 Crie o usuário que vai rodar a API. Ele não tem shell nem sudo: se a API for
@@ -299,7 +326,19 @@ Agora o Caddy:
 ```bash
 sudo cp /opt/estoque/deploy/Caddyfile /etc/caddy/Caddyfile
 sudo nano /etc/caddy/Caddyfile     # trocar api.SEU-DOMINIO.com pelo domínio real
+
+# Confere a sintaxe ANTES de aplicar. Sem isto, o "reload" falha com uma
+# mensagem genérica e o motivo real fica escondido no journalctl.
+sudo caddy validate --config /etc/caddy/Caddyfile
+
 sudo systemctl reload caddy
+```
+
+Se o `validate` apontar erro, ele diz a linha exata. Se o `reload` falhar mesmo
+com a sintaxe válida, o motivo aparece em:
+
+```bash
+sudo journalctl -xeu caddy.service | tail -30
 ```
 
 Teste de fora do servidor, do seu próprio computador:
@@ -462,6 +501,8 @@ Antes de considerar o sistema entregue:
 | `sudo: iptables: command not found` | O comando foi rodado no seu Mac. Ele roda dentro do servidor, depois do SSH conectar. |
 | SSH recusa a chave ("bad permissions") | `chmod 600` no arquivo `.key` baixado. |
 | Caddy não emite certificado | Domínio ainda não aponta para o IP, ou porta 80 fechada (o desafio do Let's Encrypt usa a 80). |
+| `systemctl reload caddy` falha | Rodar `sudo caddy validate --config /etc/caddy/Caddyfile`: aponta a linha do erro de sintaxe. |
+| `node -v` mostra v18 e falta `npm` | O repositório da NodeSource não foi aplicado e ficou o pacote do Ubuntu, que não traz npm. Ver a seção 2. |
 | API não sobe | `sudo journalctl -u estoque-api -n 50`. Erro de `.env` sai com o nome da variável. |
 | `npm run build` morre com "Killed" | Falta de memória no shape de 1 GB. Criar o swap da etapa 2. |
 | Comando `apt` não existe no servidor | A instância subiu com Oracle Linux em vez de Ubuntu. Recriar escolhendo Canonical Ubuntu em *Change image*. |

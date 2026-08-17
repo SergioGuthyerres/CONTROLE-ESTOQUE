@@ -14,11 +14,13 @@
 api.SEU-DOMINIO.com {
 	# A API escuta só em 127.0.0.1 (ver HOST no .env): nada fala com ela
 	# diretamente de fora, só através deste proxy.
+	#
+	# O Caddy já envia X-Forwarded-For, X-Forwarded-Proto e X-Forwarded-Host
+	# sozinho em todo reverse_proxy — é isso que faz o rate limit da API
+	# enxergar o IP real do visitante, e não o do proxy. Combina com
+	# TRUST_PROXY=true no .env. (Não adicione "header_up" aqui fora: ele só é
+	# válido dentro de um bloco reverse_proxy, e solto quebra o Caddy.)
 	reverse_proxy 127.0.0.1:3000
-
-	# Sem isto o rate limit da API enxerga apenas o IP do Caddy e trata o
-	# mundo inteiro como um visitante só. Combina com TRUST_PROXY=true no .env.
-	header_up X-Forwarded-For {remote_host}
 
 	encode gzip
 
