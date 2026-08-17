@@ -40,14 +40,64 @@ Ao longo do guia, substitua:
 
 No painel da Oracle: **Compute → Instances → Create instance**.
 
-- **Image:** Ubuntu 22.04 ou 24.04
-- **Shape:** `VM.Standard.A1.Flex` (ARM) com 1 OCPU e 6 GB de RAM — está dentro
-  do Always Free e sobra folga. Se der "out of capacity", tente outra
-  Availability Domain ou o shape `VM.Standard.E2.1.Micro`.
-- **SSH keys:** salve a chave privada. É o único jeito de entrar no servidor;
-  perdeu, perdeu a máquina.
+O assistente tem 5 etapas: *Basic information*, *Security*, *Networking*,
+*Storage* e *Review*.
 
-Depois que a instância subir, **libere as portas 80 e 443 em dois lugares** —
+### Etapa 1 — Basic information
+
+- **Image:** o padrão é **Oracle Linux**, não Ubuntu. Clique em **Change image**
+  e escolha **Canonical Ubuntu 22.04** ou **24.04**. Confirme na tela de review
+  antes de criar: todos os comandos deste guia usam `apt`, que não existe no
+  Oracle Linux.
+- **Shape:** clique em **Change shape**.
+  - **Preferido:** `VM.Standard.A1.Flex` (ARM) com **1 OCPU e 6 GB**. Desde
+    15/06/2026 a cota Always Free de ARM caiu de 4 OCPU/24 GB para **2 OCPU/12 GB**
+    — 1 OCPU e 6 GB continua bem dentro do gratuito.
+  - **Se der "Out of capacity"** (comum no A1): use `VM.Standard.E2.1.Micro`,
+    que é Always Free e sempre tem vaga, mas tem só **1 GB de RAM**. Com 1 GB o
+    `npm run build` costuma ser morto por falta de memória — a etapa 2 deste
+    guia cria um arquivo de swap que resolve.
+
+### Etapa 2 — Security
+
+Pode deixar **Shielded instance** ligado (Secure Boot + Measured Boot + TPM);
+as imagens do Ubuntu suportam. Se o console reclamar de incompatibilidade com o
+shape escolhido, desligue — não é necessário para o funcionamento do sistema.
+
+### Etapa 3 — Networking
+
+Esta etapa costuma aparecer com erro no primeiro acesso porque ainda não existe
+rede nenhuma na conta. Preencha assim:
+
+- **VNIC name:** qualquer nome, ex: `estoque-vnic`
+- **Primary network:** marque **Create new virtual cloud network**
+- **Subnet:** marque **Create new public subnet** — precisa ser *public*, senão
+  a máquina não recebe IP acessível pela internet
+- **Public IPv4 address assignment:** **Automatically assign public IPv4 address**
+  (o aviso "You must select a public subnet" some assim que a sub-rede pública
+  for criada)
+- **IPv6:** não precisa
+
+Ainda nesta etapa, em **Advanced options → Add SSH keys**, escolha **Generate a
+key pair for me** e clique em **Download private key**. Essa é a única vez em
+que a chave é oferecida — sem ela não há como entrar no servidor. Guarde junto
+com as senhas do projeto.
+
+No Linux/macOS, ajuste a permissão antes de usar, senão o SSH recusa a chave:
+
+```bash
+chmod 600 ~/Downloads/ssh-key-*.key
+```
+
+### Etapas 4 e 5 — Storage e Review
+
+Storage pode ficar no padrão (o boot volume de ~50 GB está no Always Free).
+Em Review, confira **imagem = Ubuntu** e **shape Always Free-eligible** antes de
+clicar em *Create*.
+
+### Depois de criada
+
+**Libere as portas 80 e 443 em dois lugares** —
 esta é a pegadinha clássica da Oracle, e quem esquece passa horas achando que o
 Caddy está quebrado:
 
@@ -80,7 +130,22 @@ ping api.SEU-DOMINIO.com     # precisa responder com o IP da sua instância
 
 ## 2. Preparar o servidor
 
-Ainda por SSH, tudo em sequência:
+Ainda por SSH, tudo em sequência.
+
+**Se você usou o shape `E2.1.Micro` (1 GB de RAM), crie o swap antes de
+qualquer outra coisa.** Sem ele, o `npm run build` da etapa 3 é morto pelo
+sistema no meio da compilação, com um erro de "Killed" que não explica nada:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h        # deve mostrar 2 GB em "Swap"
+```
+
+Em seguida, para qualquer shape:
 
 ```bash
 # Pacotes básicos e Node 20
@@ -378,6 +443,8 @@ Antes de considerar o sistema entregue:
 | `curl https://.../health` não conecta | Portas 80/443 liberadas só na Oracle **ou** só no `iptables` — precisa dos dois. |
 | Caddy não emite certificado | Domínio ainda não aponta para o IP, ou porta 80 fechada (o desafio do Let's Encrypt usa a 80). |
 | API não sobe | `sudo journalctl -u estoque-api -n 50`. Erro de `.env` sai com o nome da variável. |
+| `npm run build` morre com "Killed" | Falta de memória no shape de 1 GB. Criar o swap da etapa 2. |
+| Comando `apt` não existe no servidor | A instância subiu com Oracle Linux em vez de Ubuntu. Recriar escolhendo Canonical Ubuntu em *Change image*. |
 | "Muitas tentativas de login" | Rate limit. Espere 15 minutos ou aumente `LOGIN_MAX_TENTATIVAS`. |
 | Login diz "sessão encerrada" sem motivo | A senha foi trocada ou o acesso resetado em outro lugar — todos os aparelhos caem por design. |
 | Backup falha com "unable to open database" | `DATABASE_URL` com caminho relativo. Em produção precisa ser absoluto. |
