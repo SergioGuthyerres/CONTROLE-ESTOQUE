@@ -359,15 +359,29 @@ curl http://IP-DA-INSTANCIA:3000/health    # esperado: falhar/timeout
 
 ## 6. Publicar o PWA no Cloudflare Pages
 
-No painel do Cloudflare: **Workers & Pages → Create → Pages → Connect to Git**,
+O Cloudflare removeu do painel o fluxo antigo de criar projeto "Pages" — hoje
+só existe **Create an application**, que cria um Worker. O caminho do Worker
+tenta aplicar o plugin Vite da Cloudflare, que exige Vite 6+ e falha o deploy
+com *"The version of Vite used in the project cannot be automatically
+configured"*.
+
+A saída é `frontend/wrangler.jsonc`, já no repositório: ele declara o projeto
+como **assets estáticos puros**, sem Worker nenhum rodando. Assim o plugin Vite
+não entra na jogada, a versão do Vite deixa de importar, e o `_headers` gerado
+no build continua valendo.
+
+No painel: **Workers & Pages → Create an application → Connect to Git**,
 escolha o repositório e configure:
 
 | Campo | Valor |
 |---|---|
-| Framework preset | None |
 | Root directory | `frontend` |
 | Build command | `npm run build` |
-| Build output directory | `dist` |
+| Deploy command | `npx wrangler deploy` |
+
+Se o nome do projeto criado no painel for diferente de `estoque-casa-do-campo`,
+ajuste o campo `name` em `frontend/wrangler.jsonc` para bater — senão o deploy
+cria um segundo projeto em vez de atualizar o seu.
 
 Em **Settings → Environment variables**, adicione (para Production **e** Preview):
 
@@ -382,7 +396,7 @@ inclusive a política que impede o app de mandar dados para qualquer outro
 servidor. Se a variável faltar, o build falha de propósito.
 
 Anote a URL que o Cloudflare gerar (algo como
-`estoque-casa-do-campo.pages.dev`), volte ao servidor e coloque-a em
+`estoque-casa-do-campo.SEU-SUBDOMINIO.workers.dev`), volte ao servidor e coloque-a em
 `FRONTEND_URL`:
 
 ```bash

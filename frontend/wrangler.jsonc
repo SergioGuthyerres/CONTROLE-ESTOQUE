@@ -1,0 +1,28 @@
+{
+  // Publicação do PWA no Cloudflare.
+  //
+  // Por que este arquivo existe: o Cloudflare removeu do painel o fluxo antigo
+  // de criar um projeto "Pages", e o caminho novo (Workers) tenta encaixar o
+  // plugin Vite dele no projeto — que exige Vite 6+ e falha o deploy com
+  // "The version of Vite used in the project cannot be automatically
+  // configured". Declarando a configuração aqui, o deploy vira um upload puro
+  // de arquivos estáticos: nenhum plugin, nenhum código rodando no servidor,
+  // e a versão do Vite deixa de importar.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "estoque-casa-do-campo",
+  "compatibility_date": "2026-08-17",
+
+  "assets": {
+    "directory": "./dist",
+
+    // O app é uma SPA: /entrada, /admin/dashboard etc. não são arquivos no
+    // disco. Sem isto, abrir o PWA já instalado direto numa rota interna
+    // devolveria 404 — o que acontece toda vez que o funcionário reabre o app
+    // ou atualiza a página. Equivale ao antigo public/_redirects do Pages.
+    "not_found_handling": "single-page-application"
+  }
+
+  // Sem a chave "main": não há Worker nenhum rodando, só arquivos servidos.
+  // Os cabeçalhos de segurança continuam vindo de dist/_headers, gerado no
+  // build por scripts/gerar-headers.mjs.
+}
