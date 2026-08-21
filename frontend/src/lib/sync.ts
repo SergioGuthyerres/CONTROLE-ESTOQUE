@@ -66,6 +66,12 @@ export async function baixarCatalogo(): Promise<void> {
   });
 }
 
+// Teto de movimentações por requisição. Precisa ser <= ao limite do zod em
+// backend/src/routes/movimentacoes.ts: o servidor recusa o lote inteiro com
+// 400 se passar disso, e a fila do aparelho travaria para sempre — quanto
+// mais tempo offline, mais impossível de sincronizar ficaria.
+const MAXIMO_POR_LOTE = 200;
+
 // Envia as movimentações feitas offline (ou qualquer uma ainda não
 // confirmada) para o servidor. Idempotente: pode chamar de novo sem medo,
 // o backend ignora quem já foi recebido (ver POST /movimentacoes/sync).
@@ -73,28 +79,42 @@ export async function enviarMovimentacoesPendentes(): Promise<{ enviadas: number
   const pendentes = await db.movimentacoes.where({ sincronizada: 0 }).toArray();
   if (pendentes.length === 0) return { enviadas: 0 };
 
-  await api("/movimentacoes/sync", {
-    method: "POST",
-    body: JSON.stringify({
-      movimentacoes: pendentes.map((m) => ({
-        id: m.id,
-        produtoId: m.produtoId,
-        tipo: m.tipo,
-        motivo: m.motivo,
-        quantidade: m.quantidade,
-        valor: m.valor,
-        origemDispositivo: m.origemDispositivo,
-        criadoEm: m.criadoEm,
-      })),
-    }),
-  });
+  // Da mais antiga para a mais nova: se a conexão cair no meio, o que ficou
+  // para trás é o mais recente, que é o mais fácil de conferir depois.
+  pendentes.sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
 
-  await db.movimentacoes
-    .where("id")
-    .anyOf(pendentes.map((m) => m.id))
-    .modify({ sincronizada: 1 });
+  let enviadas = 0;
 
-  return { enviadas: pendentes.length };
+  for (let inicio = 0; inicio < pendentes.length; inicio += MAXIMO_POR_LOTE) {
+    const lote = pendentes.slice(inicio, inicio + MAXIMO_POR_LOTE);
+
+    await api("/movimentacoes/sync", {
+      method: "POST",
+      body: JSON.stringify({
+        movimentacoes: lote.map((m) => ({
+          id: m.id,
+          produtoId: m.produtoId,
+          tipo: m.tipo,
+          motivo: m.motivo,
+          quantidade: m.quantidade,
+          valor: m.valor,
+          origemDispositivo: m.origemDispositivo,
+          criadoEm: m.criadoEm,
+        })),
+      }),
+    });
+
+    // Marca lote a lote, e não tudo no fim: se o envio parar no meio, o que
+    // já chegou fica marcado e o próximo ciclo continua de onde parou.
+    await db.movimentacoes
+      .where("id")
+      .anyOf(lote.map((m) => m.id))
+      .modify({ sincronizada: 1 });
+
+    enviadas += lote.length;
+  }
+
+  return { enviadas };
 }
 
 // Um ciclo completo: sobe o que este aparelho fez, desce o que o mundo fez.

@@ -9,6 +9,8 @@ const chamadas: { caminho: string; corpo?: unknown }[] = [];
 let produtosDoServidor: unknown[] = [];
 let categoriasDoServidor: unknown[] = [];
 let sugestoesDoServidor: string[] = [];
+let enviosFeitos = 0;
+let falharNoEnvioNumero: number | null = null;
 
 vi.mock("../src/lib/api", () => ({
   api: async (caminho: string, opcoes?: RequestInit) => {
@@ -19,7 +21,11 @@ vi.mock("../src/lib/api", () => ({
     if (caminho === "/produtos") return produtosDoServidor;
     if (caminho === "/categorias") return categoriasDoServidor;
     if (caminho.startsWith("/produtos/mais-movimentados")) return sugestoesDoServidor;
-    if (caminho === "/movimentacoes/sync") return { sincronizadas: 1 };
+    if (caminho === "/movimentacoes/sync") {
+      enviosFeitos += 1;
+      if (falharNoEnvioNumero === enviosFeitos) throw new Error("rede caiu");
+      return { sincronizadas: 1 };
+    }
     throw new Error(`Rota não prevista no teste: ${caminho}`);
   },
 }));
@@ -61,6 +67,8 @@ beforeEach(async () => {
   chamadas.length = 0;
   categoriasDoServidor = [{ id: "cat-1", nome: "Ração" }];
   sugestoesDoServidor = [];
+  enviosFeitos = 0;
+  falharNoEnvioNumero = null;
   produtosDoServidor = [produtoApi("prod-1", "Ração 20kg", 10)];
   await db.produtos.clear();
   await db.categorias.clear();
@@ -139,6 +147,40 @@ describe("fila de movimentações", () => {
     expect(envio).toBeDefined();
     expect((envio!.corpo as { movimentacoes: unknown[] }).movimentacoes).toHaveLength(2);
     expect(await db.movimentacoes.where({ sincronizada: 0 }).count()).toBe(0);
+  });
+
+  test("fila maior que o lote é enviada em partes", async () => {
+    // Regressão: a fila inteira ia numa requisição só, e o backend recusa
+    // lotes acima de 200 com 400. Um aparelho que passasse muito tempo
+    // offline travava a sincronização para sempre — e quanto mais tempo
+    // offline, mais impossível de destravar ficava.
+    const muitas = Array.from({ length: 250 }, (_, indice) =>
+      movimentacaoLocal(`mov-${String(indice).padStart(3, "0")}`, "prod-1", 1),
+    );
+    await db.movimentacoes.bulkAdd(muitas);
+
+    const { enviadas } = await enviarMovimentacoesPendentes();
+
+    const envios = chamadas.filter((c) => c.caminho === "/movimentacoes/sync");
+    expect(enviadas).toBe(250);
+    expect(envios).toHaveLength(2);
+    expect((envios[0].corpo as { movimentacoes: unknown[] }).movimentacoes).toHaveLength(200);
+    expect((envios[1].corpo as { movimentacoes: unknown[] }).movimentacoes).toHaveLength(50);
+    expect(await db.movimentacoes.where({ sincronizada: 0 }).count()).toBe(0);
+  });
+
+  test("um lote que falha não desmarca o que já tinha sido confirmado", async () => {
+    const muitas = Array.from({ length: 250 }, (_, indice) =>
+      movimentacaoLocal(`mov-${String(indice).padStart(3, "0")}`, "prod-1", 1),
+    );
+    await db.movimentacoes.bulkAdd(muitas);
+    falharNoEnvioNumero = 2;
+
+    await expect(enviarMovimentacoesPendentes()).rejects.toThrow();
+
+    // As 200 do primeiro lote chegaram ao servidor e ficam marcadas; só as 50
+    // do lote que falhou continuam na fila para a próxima tentativa.
+    expect(await db.movimentacoes.where({ sincronizada: 0 }).count()).toBe(50);
   });
 
   test("uma segunda sincronização não reenvia o que já foi confirmado", async () => {
