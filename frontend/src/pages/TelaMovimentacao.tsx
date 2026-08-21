@@ -101,7 +101,7 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
     <div className="space-y-4 pt-2">
       <h1 className="text-lg font-semibold">{TITULOS[tipo]}</h1>
 
-      {!produto && <BuscaProduto onEscolher={escolherProduto} />}
+      {!produto && <BuscaProduto onEscolher={escolherProduto} tipo={tipo} />}
 
       {produto && (
         <ProdutoEscolhido
