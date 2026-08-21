@@ -16,8 +16,9 @@ interface CategoriaApi {
 }
 
 // Atualiza o cache local de produtos/categorias com o que está no servidor.
-// Chamado ao logar e depois de cada sincronização de movimentações — é o
-// que faz o "estoqueAtualServidor" local deixar de estar defasado.
+// É o único caminho pelo qual uma mudança feita em OUTRO aparelho (um produto
+// novo cadastrado no celular do dono, uma venda lançada por outro funcionário)
+// chega até aqui.
 export async function baixarCatalogo(): Promise<void> {
   const [produtos, categorias] = await Promise.all([
     api<ProdutoApi[]>("/produtos"),
@@ -25,10 +26,11 @@ export async function baixarCatalogo(): Promise<void> {
   ]);
 
   await db.transaction("rw", db.produtos, db.categorias, async () => {
-    await db.categorias.clear();
+    // Substituir registro a registro em vez de `clear()` + `bulkPut()`: o
+    // clear deixava as tabelas vazias por um instante dentro da transação, e
+    // as telas que leem com useLiveQuery chegavam a pintar "nenhum produto
+    // encontrado" no meio de uma atualização de rotina.
     await db.categorias.bulkPut(categorias);
-
-    await db.produtos.clear();
     await db.produtos.bulkPut(
       produtos.map((p) => ({
         id: p.id,
@@ -38,15 +40,27 @@ export async function baixarCatalogo(): Promise<void> {
         unidade: p.unidade,
         estoqueMinimo: p.estoqueMinimo,
         estoqueAtualServidor: p.estoqueAtual,
-      }))
+      })),
     );
+
+    // O que sumiu do servidor precisa sumir daqui também, senão um produto
+    // apagado continua aparecendo na busca deste aparelho para sempre.
+    const idsNoServidor = new Set(produtos.map((p) => p.id));
+    const produtosLocais = await db.produtos.toCollection().primaryKeys();
+    const produtosSumidos = produtosLocais.filter((id) => !idsNoServidor.has(id));
+    if (produtosSumidos.length > 0) await db.produtos.bulkDelete(produtosSumidos);
+
+    const idsCategorias = new Set(categorias.map((c) => c.id));
+    const categoriasLocais = await db.categorias.toCollection().primaryKeys();
+    const categoriasSumidas = categoriasLocais.filter((id) => !idsCategorias.has(id));
+    if (categoriasSumidas.length > 0) await db.categorias.bulkDelete(categoriasSumidas);
   });
 }
 
 // Envia as movimentações feitas offline (ou qualquer uma ainda não
 // confirmada) para o servidor. Idempotente: pode chamar de novo sem medo,
 // o backend ignora quem já foi recebido (ver POST /movimentacoes/sync).
-export async function sincronizarMovimentacoes(): Promise<{ enviadas: number }> {
+export async function enviarMovimentacoesPendentes(): Promise<{ enviadas: number }> {
   const pendentes = await db.movimentacoes.where({ sincronizada: 0 }).toArray();
   if (pendentes.length === 0) return { enviadas: 0 };
 
@@ -71,8 +85,21 @@ export async function sincronizarMovimentacoes(): Promise<{ enviadas: number }> 
     .anyOf(pendentes.map((m) => m.id))
     .modify({ sincronizada: 1 });
 
-  await baixarCatalogo();
   return { enviadas: pendentes.length };
+}
+
+// Um ciclo completo: sobe o que este aparelho fez, desce o que o mundo fez.
+//
+// As duas metades são independentes de propósito. Antes, baixar o catálogo era
+// a última linha do envio e só acontecia quando havia fila para enviar — um
+// aparelho que só consultava (ou que estava em dia) nunca recebia nada novo, e
+// a única forma de ver um produto cadastrado em outro celular era sair da
+// conta e entrar de novo, porque o login era o outro lugar que baixava o
+// catálogo.
+export async function sincronizar(): Promise<{ enviadas: number }> {
+  const resultado = await enviarMovimentacoesPendentes();
+  await baixarCatalogo();
+  return resultado;
 }
 
 let sincronizando = false;
@@ -83,7 +110,7 @@ export async function sincronizarSePossivel(): Promise<void> {
   if (!navigator.onLine || sincronizando) return;
   sincronizando = true;
   try {
-    await sincronizarMovimentacoes();
+    await sincronizar();
   } catch (erro) {
     console.warn("Falha ao sincronizar — tenta de novo mais tarde.", erro);
   } finally {
@@ -91,14 +118,28 @@ export async function sincronizarSePossivel(): Promise<void> {
   }
 }
 
+const INTERVALO_MS = 60_000;
+
 export function iniciarSincronizacaoAutomatica(): () => void {
   sincronizarSePossivel();
+
   const aoFicarOnline = () => sincronizarSePossivel();
+
+  // No celular, o app instalado passa horas em segundo plano e o sistema
+  // congela o setInterval enquanto isso. Sem este gatilho, quem volta ao app
+  // depois de um tempo olha para dados velhos até o próximo tick acordar —
+  // que era exatamente a sensação de "só atualiza se eu sair e entrar".
+  const aoVoltarAoApp = () => {
+    if (document.visibilityState === "visible") sincronizarSePossivel();
+  };
+
   window.addEventListener("online", aoFicarOnline);
-  const intervalo = setInterval(sincronizarSePossivel, 60_000);
+  document.addEventListener("visibilitychange", aoVoltarAoApp);
+  const intervalo = setInterval(sincronizarSePossivel, INTERVALO_MS);
 
   return () => {
     window.removeEventListener("online", aoFicarOnline);
+    document.removeEventListener("visibilitychange", aoVoltarAoApp);
     clearInterval(intervalo);
   };
 }
