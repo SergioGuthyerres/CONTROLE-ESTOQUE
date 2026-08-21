@@ -271,10 +271,10 @@ sudo -u estoque npm run build
 sudo -u estoque bash -c 'set -a && . /etc/estoque/api.env && set +a && npx prisma migrate deploy'
 ```
 
-> **Não rode `npm run seed` no servidor.** Ele cria os usuários de exemplo
-> `admin/admin123` e `funcionario/func123`, que estão publicados no README deste
-> repositório público. O script se recusa a rodar com `NODE_ENV=production`
-> justamente por isso.
+> **Não rode `npm run seed:dev` no servidor.** Ele cria usuários de exemplo
+> que não deveriam existir no banco da loja, com senhas que ficam num
+> terminal. O script se recusa a rodar com `NODE_ENV=production` justamente
+> por isso — o usuário dos donos é criado pelo passo 4, abaixo.
 
 ---
 
@@ -544,7 +544,7 @@ Antes de considerar o sistema entregue:
 
 - [ ] `JWT_SECRET` gerado com `openssl rand -base64 48`, só no servidor
 - [ ] `/etc/estoque/api.env` com permissão `600` e dono `estoque`
-- [ ] `npm run seed` **nunca** executado no servidor
+- [ ] `npm run seed:dev` **nunca** executado no servidor
 - [ ] Nenhum usuário chamado `admin` ou `funcionario` existe em produção
 - [ ] `https://api.SEU-DOMINIO.com/health` responde com cadeado válido
 - [ ] `http://IP:3000/health` **não** responde de fora

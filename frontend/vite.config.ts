@@ -11,7 +11,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icone.svg"],
       manifest: {
-        name: "Estoque Casa do Campo",
+        name: "Casa do Campo — Estoque",
         short_name: "Estoque",
         description: "Controle de estoque da Casa do Campo",
         theme_color: "#1F3864",

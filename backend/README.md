@@ -1,4 +1,4 @@
-# Backend — Estoque Casa do Campo
+# Backend — Casa do Campo Estoque
 
 API em Node + TypeScript + Express + Prisma, banco SQLite (arquivo único).
 Ver [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) antes de mexer — tem as
@@ -10,15 +10,21 @@ regras de negócio que não podem quebrar.
 npm install
 cp .env.example .env
 npm run prisma:migrate   # cria o banco (dev.db) e as tabelas
-npm run seed              # usuários e produtos de exemplo
+npm run seed:dev          # usuários e produtos de exemplo
 npm run dev                # http://localhost:3000
 ```
 
-Usuários criados pelo seed: `admin` / `admin123` e `funcionario` / `func123`.
-São **exclusivamente de desenvolvimento** — estão publicados neste repositório
-público, o seed se recusa a rodar com `NODE_ENV=production` e o validador de
-senha as recusa. Em produção, ver `npm run criar-admin` e
+O seed cria os usuários `admin` e `funcionario` com **senhas sorteadas a cada
+execução**, impressas no terminal. Elas valem só neste banco de
+desenvolvimento e não existem em lugar nenhum do repositório. O seed também se
+recusa a rodar com `NODE_ENV=production`. Em produção, ver
+`npm run criar-admin` e
 [deploy/README-DEPLOY.md](../deploy/README-DEPLOY.md).
+
+As senhas de exemplo que este repositório já publicou (`admin123`, `func123`)
+continuam na lista de senhas proibidas de `src/lib/senha.ts`, e há teste
+garantindo que o sistema as recusa — quem as conhece do histórico do Git não
+consegue usá-las.
 
 ## Scripts
 
@@ -26,10 +32,11 @@ senha as recusa. Em produção, ver `npm run criar-admin` e
 |---|---|
 | `npm run dev` | Sobe a API com reload automático |
 | `npm run build` / `npm start` | Build de produção e execução |
-| `npm test` | Testes das regras de segurança (sessão, permissão, força bruta) |
+| `npm test` | Testes das regras de segurança e de negócio (sessão, permissão, força bruta, estorno, resumo, relatório) |
+| `npm run typecheck` | Typecheck sem gerar `dist/` |
 | `npm run prisma:migrate` | Cria/atualiza o schema do banco (desenvolvimento) |
 | `npm run prisma:deploy` | Aplica migrations existentes (produção) |
-| `npm run seed` | Popula usuários e produtos de exemplo (só em dev) |
+| `npm run seed:dev` | Popula usuários e produtos de exemplo, com senhas sorteadas (só em dev) |
 | `npm run criar-admin -- --nome dona.maria` | Cria/reseta o admin dos donos com senha digitada sem eco |
 | `npm run backup` | Backup consistente do banco com rotação (RF16) |
 | `npm run limpar-dados` | Mostra o que seria apagado; com `-- --confirmar`, zera produtos/categorias/movimentações preservando usuários (faz backup antes) |
@@ -91,11 +98,14 @@ Todas as rotas exceto `/auth/login` e `/health` exigem
 | POST/PUT | `/categorias` | Cria/edita categoria |
 | GET | `/produtos?busca=texto` | Lista produtos com estoque calculado |
 | GET | `/produtos/:id/estoque` | Estoque atual de um produto (checagem RF07) |
+| GET | `/produtos/mais-movimentados?tipo=saida` | Ids dos produtos mais lançados neste tipo — atalhos da tela de venda/compra |
 | POST/PUT | `/produtos` | Cria/edita produto |
 | POST | `/movimentacoes/sync` | Envia lote de movimentações (offline ou online) |
-| GET | `/movimentacoes` **(admin)** | Histórico/auditoria (RF13) |
+| GET | `/movimentacoes?tipo=&motivo=&dataInicio=&dataFim=` **(admin)** | Histórico/auditoria com filtros (RF13) |
+| POST | `/movimentacoes/:id/estorno` **(admin)** | Desfaz criando a movimentação inversa (RF17) — nunca apaga |
 | GET | `/alertas` **(admin)** | Estoque mínimo/negativo (RF09/RF10) |
-| GET | `/relatorios/movimentacao-por-produto` **(admin)** | RF11 |
+| GET | `/relatorios/movimentacao-por-produto` **(admin)** | RF11 — com quebra por tipo e motivo |
+| GET | `/relatorios/resumo-do-dia` **(admin)** | Vendas, compras e outras movimentações de um período |
 | GET | `/relatorios/valor-total-estoque` **(admin)** | RF12 |
 | GET | `/dashboard` **(admin)** | Resumo (RF08) |
 

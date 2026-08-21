@@ -10,7 +10,7 @@
     "start": "node dist/server.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
-    "seed": "tsx src/scripts/seed.ts",
+    "seed:dev": "tsx src/scripts/seed.ts",
     "backup": "tsx src/scripts/backup.ts",
     "criar-admin": "tsx src/scripts/criarAdmin.ts",
     "prisma:deploy": "prisma migrate deploy",

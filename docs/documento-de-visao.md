@@ -1,7 +1,7 @@
-# Documento de Visão — Estoque Casa do Campo
+# Documento de Visão — Casa do Campo Estoque
 
-> Nome do sistema provisório: **Estoque Casa do Campo**. Sugestão livre, já que a
-> identidade visual ainda está em aberto — troquem quando quiserem.
+> Nome definitivo do sistema: **Casa do Campo — Estoque**. A identidade visual
+> (cores, logo) ainda está em aberto com o cliente; o nome, não.
 
 ## 1. Contexto e problema
 
@@ -20,7 +20,7 @@ Esse processo manual gera:
 ## 2. Declaração de visão
 
 Para a **Casa do Campo**, que precisa registrar entradas e saídas de estoque
-sem depender de anotações manuais, o **Estoque Casa do Campo** é um sistema de
+sem depender de anotações manuais, o **Casa do Campo — Estoque** é um sistema de
 controle de estoque com painel administrativo que dá visibilidade real sobre
 quantidade, valor investido e movimentação dos produtos — diferente do
 caderno atual, que não rastreia nada de forma confiável e não gera nenhum
