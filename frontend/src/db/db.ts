@@ -31,7 +31,10 @@ export type MotivoMovimentacao =
   | "venda"
   | "perda"
   | "uso_interno"
-  | "inventario";
+  | "inventario"
+  // Criado só pelo servidor, ao desfazer uma movimentação pelo histórico.
+  // Nunca é gravado nesta fila local: o estorno nasce no painel, online.
+  | "estorno";
 
 export interface MovimentacaoLocal {
   id: string; // uuid gerado no cliente — chave de idempotência na sincronização

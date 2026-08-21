@@ -24,6 +24,7 @@
 - **RF11** — Relatório de produtos mais/menos movimentados (por período)
 - **RF12** — Relatório de valor total em estoque
 - **RF13** — Histórico/auditoria de movimentações (quem, o quê, quando — somente leitura, nunca editável)
+- **RF17** — Desfazer uma movimentação a partir do histórico (só Admin). Desfazer **não apaga nem edita** o registro original: cria uma movimentação inversa com motivo `estorno`, ligada à original por `estorno_de_id`. Uma movimentação só pode ser desfeita uma vez, e um estorno não pode ser desfeito
 
 ### Acesso
 - **RF14** — Login individual por usuário, com dois perfis: Funcionário e Admin
@@ -68,11 +69,12 @@ erDiagram
         uuid produto_id FK
         uuid usuario_id FK
         string tipo "entrada | saida (só 2 valores — ver regra 1)"
-        string motivo "compra | devolucao | venda | perda | uso_interno | inventario"
+        string motivo "compra | devolucao | venda | perda | uso_interno | inventario | estorno"
         decimal quantidade "sempre positiva; tipo define soma ou subtração"
         decimal valor
         datetime criado_em
         string origem_dispositivo "id do dispositivo que gerou o registro"
+        uuid estorno_de_id FK "único e opcional — a movimentação que esta desfaz (RF17)"
     }
 
     CATEGORIA ||--o{ PRODUTO : classifica
@@ -88,8 +90,12 @@ erDiagram
    de inventário não é um tipo à parte: contagem a mais é `entrada` (motivo
    `inventario`), a menos é `saida` (motivo `inventario`).
 2. **`MOVIMENTACAO` é append-only.** Não existe update nem delete — uma
-   correção é sempre uma nova movimentação (ex: tipo `ajuste`), preservando o
-   histórico completo (RF13).
+   correção é sempre uma nova movimentação, preservando o histórico completo
+   (RF13). O "desfazer" do RF17 segue essa regra: é uma movimentação inversa
+   (mesmo produto, mesma quantidade, tipo trocado, motivo `estorno`) apontando
+   para a original por `estorno_de_id`. O estoque se corrige sozinho porque é
+   soma de movimentações; o erro e a correção ficam ambos visíveis no
+   histórico, que é o que uma auditoria precisa ver.
 3. `origem_dispositivo` existe para rastrear de qual aparelho veio cada
    registro, útil para investigar estoque negativo (RF10).
 4. A checagem do RF07 consulta o estoque **calculado no servidor** (não o

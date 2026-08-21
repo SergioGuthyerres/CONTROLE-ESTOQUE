@@ -71,11 +71,23 @@ model Movimentacao {
   usuarioId         String
   usuario           Usuario  @relation(fields: [usuarioId], references: [id])
   tipo              String // "entrada" | "saida" — ver src/lib/enums.ts (ajuste de inventário é entrada OU saida com motivo "inventario", nunca um 3º tipo)
-  motivo            String // "compra" | "devolucao" | "venda" | "perda" | "uso_interno" | "inventario"
+  motivo            String // "compra" | "devolucao" | "venda" | "perda" | "uso_interno" | "inventario" | "estorno"
   quantidade        Decimal // sempre positiva; "tipo" decide se soma ou subtrai
   valor             Decimal  @default(0)
   origemDispositivo String // id do dispositivo que originou o registro (rastreio de estoque negativo)
   criadoEm          DateTime @default(now())
+
+  // "Desfazer" uma movimentação NÃO a apaga — cria uma movimentação inversa
+  // que aponta para ela por aqui (ver src/services/estornoService.ts). É o
+  // que mantém o registro append-only: o erro e a correção ficam os dois no
+  // histórico, e o estoque se ajusta sozinho porque é soma de movimentações.
+  //
+  // O @unique é a regra de negócio no banco: uma movimentação só pode ser
+  // estornada uma vez. Sem ele, dois cliques no botão criariam dois inversos
+  // e o estoque ficaria errado no sentido oposto.
+  estornoDeId String?       @unique
+  estornoDe   Movimentacao? @relation("Estorno", fields: [estornoDeId], references: [id])
+  estorno     Movimentacao? @relation("Estorno")
 
   @@index([produtoId])
   @@index([criadoEm])

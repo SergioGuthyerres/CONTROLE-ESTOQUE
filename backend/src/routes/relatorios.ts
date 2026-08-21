@@ -19,6 +19,12 @@ relatoriosRouter.get("/movimentacao-por-produto", assincrono(async (req, res) =>
         gte: dataInicio,
         lte: dataFim,
       },
+      // Uma movimentação desfeita e o estorno dela se anulam no estoque, mas
+      // somariam DOBRADO num relatório de "mais movimentados" — o produto
+      // digitado errado apareceria no topo justamente por ter sido corrigido.
+      // Fora as duas, sobra o que de fato girou.
+      motivo: { not: "estorno" },
+      estorno: { is: null },
     },
     _sum: { quantidade: true },
   });
