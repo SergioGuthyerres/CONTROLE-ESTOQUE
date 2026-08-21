@@ -68,6 +68,12 @@ provisória):
 cd backend && npm test
 ```
 
+## Contribuindo
+
+Nada entra na `main` por commit direto: toda mudança nasce numa branch e entra
+por Pull Request com o CI verde. O fluxo, a convenção de nomes e o que um PR
+precisa ter estão em [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Estado atual
 
 MVP definido em docs/especificacao-requisitos.md (RF01–RF16) implementado:
