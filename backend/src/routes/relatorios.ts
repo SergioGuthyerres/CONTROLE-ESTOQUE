@@ -9,10 +9,30 @@ import { resumirPeriodo } from "../services/resumoService";
 export const relatoriosRouter = Router();
 relatoriosRouter.use(exigirAutenticacao, exigirPerfil("admin"));
 
+// Período opcional dos dois lados: "desde 01/08" e "até 15/08" são recortes
+// tão legítimos quanto o intervalo fechado, e sem nenhum dos dois o relatório
+// é o histórico inteiro.
+//
+// Validado com zod em vez do `new Date(...)` que estava aqui: uma data
+// impossível virava `Invalid Date`, ia parar no Prisma e voltava como erro
+// 500 sem explicação. Agora volta 400 dizendo qual campo está errado.
+const periodoOpcionalSchema = z
+  .object({
+    dataInicio: z.coerce.date().optional(),
+    dataFim: z.coerce.date().optional(),
+  })
+  .refine(
+    (periodo) =>
+      !periodo.dataInicio || !periodo.dataFim || periodo.dataInicio <= periodo.dataFim,
+    { message: "A data inicial precisa ser anterior à data final", path: ["dataFim"] },
+  );
+
 // RF11: produtos mais/menos movimentados num período (soma de entrada+saida).
 relatoriosRouter.get("/movimentacao-por-produto", assincrono(async (req, res) => {
-  const dataInicio = typeof req.query.dataInicio === "string" ? new Date(req.query.dataInicio) : undefined;
-  const dataFim = typeof req.query.dataFim === "string" ? new Date(req.query.dataFim) : undefined;
+  const parse = periodoOpcionalSchema.safeParse(req.query);
+  if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
+
+  const { dataInicio, dataFim } = parse.data;
 
   const agrupado = await prisma.movimentacao.groupBy({
     by: ["produtoId"],

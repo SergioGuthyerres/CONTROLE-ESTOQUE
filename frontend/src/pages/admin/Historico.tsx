@@ -4,7 +4,13 @@ import { AdminNav } from "../../components/AdminNav";
 import { Link } from "react-router-dom";
 import { MOTIVOS_POR_TIPO, ROTULO_MOTIVO, ROTULO_TIPO } from "../../lib/enums";
 import { baixarCatalogo } from "../../lib/sync";
-import { fimDoDiaLocal, hoje, inicioDoDiaLocal, somarDias } from "../../lib/datas";
+import {
+  PERIODO_VAZIO,
+  SeletorDePeriodo,
+  parametrosDoPeriodo,
+  periodoInvertido,
+  type Periodo,
+} from "../../components/SeletorDePeriodo";
 import type { MotivoMovimentacao, TipoMovimentacao } from "../../db/db";
 
 interface LigacaoEstorno {
@@ -51,22 +57,16 @@ export function Historico() {
   const [motivo, setMotivo] = useState<FiltroMotivo>("todos");
   // Vazio = sem limite daquele lado. Um período aberto ("de 01/08 em diante")
   // é uma busca tão comum quanto o intervalo fechado.
-  const [de, setDe] = useState("");
-  const [ate, setAte] = useState("");
+  const [periodo, setPeriodo] = useState<Periodo>(PERIODO_VAZIO);
 
-  const periodoInvertido = de !== "" && ate !== "" && de > ate;
+  const invertido = periodoInvertido(periodo);
 
   const carregar = useCallback(async () => {
-    if (periodoInvertido) return;
+    if (periodoInvertido(periodo)) return;
 
-    const parametros = new URLSearchParams();
+    const parametros = parametrosDoPeriodo(periodo);
     if (tipo !== "todos") parametros.set("tipo", tipo);
     if (motivo !== "todos") parametros.set("motivo", motivo);
-    // O navegador converte o dia escolhido para instante no fuso da loja —
-    // ver o comentário em src/lib/datas.ts sobre por que mandar a data crua
-    // jogaria as vendas da noite para o dia seguinte.
-    if (de) parametros.set("dataInicio", inicioDoDiaLocal(de).toISOString());
-    if (ate) parametros.set("dataFim", fimDoDiaLocal(ate).toISOString());
     const consulta = parametros.toString();
 
     try {
@@ -80,26 +80,11 @@ export function Historico() {
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar o histórico.");
     }
-  }, [tipo, motivo, de, ate, periodoInvertido]);
+  }, [tipo, motivo, periodo]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
-
-  function escolherDia(dia: string) {
-    setDe(dia);
-    setAte(dia);
-  }
-
-  function ultimosDias(quantidade: number) {
-    setDe(somarDias(hoje(), -(quantidade - 1)));
-    setAte(hoje());
-  }
-
-  function limparPeriodo() {
-    setDe("");
-    setAte("");
-  }
 
   function trocarTipo(novo: FiltroTipo) {
     setTipo(novo);
@@ -173,67 +158,12 @@ export function Historico() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm mb-1">Período</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              className="campo"
-              aria-label="Data inicial"
-              value={de}
-              max={ate || undefined}
-              onChange={(e) => setDe(e.target.value)}
-            />
-            <span className="text-sm text-gray-500">até</span>
-            <input
-              type="date"
-              className="campo"
-              aria-label="Data final"
-              value={ate}
-              min={de || undefined}
-              onChange={(e) => setAte(e.target.value)}
-            />
-          </div>
-
-          {periodoInvertido && (
-            <p className="text-red-600 text-xs mt-1">
-              A data inicial precisa vir antes da final.
-            </p>
-          )}
-
-          {/* Os atalhos existem porque a pergunta do dia a dia quase sempre é
-              uma destas três, e digitar duas datas iguais para ver "hoje" é
-              atrito que o RNF05 pede para evitar. */}
-          <div className="flex flex-wrap gap-3 mt-2 text-xs">
-            <button type="button" className="underline" onClick={() => escolherDia(hoje())}>
-              Hoje
-            </button>
-            <button
-              type="button"
-              className="underline"
-              onClick={() => escolherDia(somarDias(hoje(), -1))}
-            >
-              Ontem
-            </button>
-            <button type="button" className="underline" onClick={() => ultimosDias(7)}>
-              Últimos 7 dias
-            </button>
-            <button type="button" className="underline" onClick={() => ultimosDias(30)}>
-              Últimos 30 dias
-            </button>
-            {(de || ate) && (
-              <button
-                type="button"
-                className="underline text-gray-500"
-                onClick={limparPeriodo}
-              >
-                Limpar
-              </button>
-            )}
-          </div>
-        </div>
+        <SeletorDePeriodo valor={periodo} aoMudar={setPeriodo} />
       </div>
 
+      {invertido && (
+        <p className="text-sm text-gray-500">Corrija o período para ver o resultado.</p>
+      )}
       {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
       <ul className="cartao divide-y divide-gray-200">
@@ -311,7 +241,7 @@ export function Historico() {
         )}
         {movimentacoes?.length === 0 && (
           <li className="py-2 text-sm text-gray-500">
-            {tipo === "todos" && motivo === "todos" && !de && !ate
+            {tipo === "todos" && motivo === "todos" && !periodo.de && !periodo.ate
               ? "Nenhuma movimentação ainda."
               : "Nenhuma movimentação com esses filtros."}
           </li>
