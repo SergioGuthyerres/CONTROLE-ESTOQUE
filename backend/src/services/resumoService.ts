@@ -51,10 +51,15 @@ export async function resumirPeriodo(
     _count: { _all: true },
   });
 
-  const produtos = await prisma.produto.findMany({
-    where: { id: { in: agrupado.map((linha) => linha.produtoId) } },
-    select: { id: true, nome: true, unidade: true },
-  });
+  // Tipo anotado à mão: o `select` do Prisma só devolve tipo de verdade depois
+  // de `prisma generate`, e sem a anotação o typecheck passa a depender de o
+  // cliente ter sido gerado — o que faz o erro aparecer em máquina de gente e
+  // não no CI, ou o contrário.
+  const produtos: { id: string; nome: string; unidade: string }[] =
+    await prisma.produto.findMany({
+      where: { id: { in: agrupado.map((linha) => linha.produtoId) } },
+      select: { id: true, nome: true, unidade: true },
+    });
   const produtoPorId = new Map(produtos.map((p) => [p.id, p]));
 
   const resumo: ResumoDoPeriodo = {
