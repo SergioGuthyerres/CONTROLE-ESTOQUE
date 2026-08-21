@@ -1,8 +1,10 @@
 import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { exigirAutenticacao, exigirPerfil } from "../middleware/auth";
 import { calcularValorTotalEstoque } from "../services/stockService";
 import { assincrono } from "../middleware/erros";
+import { resumirPeriodo } from "../services/resumoService";
 
 export const relatoriosRouter = Router();
 relatoriosRouter.use(exigirAutenticacao, exigirPerfil("admin"));
@@ -43,6 +45,29 @@ relatoriosRouter.get("/movimentacao-por-produto", assincrono(async (req, res) =>
     .sort((a, b) => b.totalMovimentado - a.totalMovimentado);
 
   res.json(resultado);
+}));
+
+// Conferência de caixa: o que foi vendido, o que foi comprado e o que mais
+// mexeu no estoque num período — normalmente um dia.
+//
+// As datas são obrigatórias aqui, ao contrário do histórico: um "resumo do
+// dia" sem dia é a soma do sistema inteiro, um número enorme que ninguém
+// pediu e que faz o servidor varrer a tabela toda para produzir.
+const periodoSchema = z
+  .object({
+    dataInicio: z.coerce.date(),
+    dataFim: z.coerce.date(),
+  })
+  .refine((periodo) => periodo.dataInicio <= periodo.dataFim, {
+    message: "A data inicial precisa ser anterior à data final",
+    path: ["dataFim"],
+  });
+
+relatoriosRouter.get("/resumo-do-dia", assincrono(async (req, res) => {
+  const parse = periodoSchema.safeParse(req.query);
+  if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
+
+  res.json(await resumirPeriodo(parse.data.dataInicio, parse.data.dataFim));
 }));
 
 // RF12: valor total em estoque, por produto e consolidado.

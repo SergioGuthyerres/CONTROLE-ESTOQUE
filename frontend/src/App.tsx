@@ -10,6 +10,7 @@ import { CadastroProduto } from "./pages/CadastroProduto";
 import { CadastroCategoria } from "./pages/CadastroCategoria";
 import { Dashboard } from "./pages/admin/Dashboard";
 import { Relatorios } from "./pages/admin/Relatorios";
+import { ResumoDoDia } from "./pages/admin/ResumoDoDia";
 import { Historico } from "./pages/admin/Historico";
 import { Usuarios } from "./pages/admin/Usuarios";
 
@@ -42,6 +43,7 @@ export function App() {
 
               <Route element={<RotaProtegida somentePerfis={["admin"]} />}>
                 <Route path="/admin/dashboard" element={<Dashboard />} />
+                <Route path="/admin/resumo-do-dia" element={<ResumoDoDia />} />
                 <Route path="/admin/relatorios" element={<Relatorios />} />
                 <Route path="/admin/historico" element={<Historico />} />
                 <Route path="/admin/usuarios" element={<Usuarios />} />
