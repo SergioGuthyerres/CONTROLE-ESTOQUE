@@ -47,19 +47,24 @@ export function SeletorDePeriodo(props: {
   return (
     <div>
       <label className="block text-sm mb-1">{props.rotulo ?? "Período"}</label>
+      {/* flex-1 + min-w-0 nos dois campos: `.campo` é `w-full`, e dois deles
+          lado a lado pediam 100% da largura cada um. Como o padrão do flex é
+          `min-width: auto`, o navegador não encolhia nenhum — a linha
+          estourava a tela do celular e a página inteira ganhava rolagem
+          horizontal. Com `min-w-0` eles podem encolher e dividem o espaço. */}
       <div className="flex items-center gap-2">
         <input
           type="date"
-          className="campo"
+          className="campo flex-1 min-w-0 text-base"
           aria-label="Data inicial"
           value={valor.de}
           max={valor.ate || undefined}
           onChange={(e) => aoMudar({ ...valor, de: e.target.value })}
         />
-        <span className="text-sm text-gray-500">até</span>
+        <span className="text-sm text-gray-500 shrink-0">até</span>
         <input
           type="date"
-          className="campo"
+          className="campo flex-1 min-w-0 text-base"
           aria-label="Data final"
           value={valor.ate}
           min={valor.de || undefined}
