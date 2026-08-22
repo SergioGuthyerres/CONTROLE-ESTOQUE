@@ -12,7 +12,10 @@ on:
 # gastar minuto de runner testando um commit que já foi substituído.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancela execução superada de PR, NUNCA de push na main: um push na main
+  # pode estar no meio do deploy da API, e cancelar ali deixaria o servidor
+  # com dependência instalada pela metade.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -91,3 +94,55 @@ jobs:
         env:
           VITE_API_URL: https://casadocampo.duckdns.org
         run: npm run build
+
+  # Publica a API no servidor. Só depois dos dois jobs acima passarem, e só em
+  # push na main — ou seja, só depois de um PR mergeado.
+  #
+  # Isto existe porque o PWA se publica sozinho a cada merge (Cloudflare) e a
+  # API não se publicava. A janela entre os dois deploys é o intervalo em que o
+  # app novo conversa com a API antiga — que já derrubou o catálogo dos donos
+  # uma vez, quando o app passou a chamar uma rota que o servidor ainda não
+  # tinha.
+  deploy-api:
+    name: deploy da API
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Grupo próprio, sem cancelamento: deploy pela metade é pior que deploy
+    # atrasado. Dois merges seguidos enfileiram, e o flock do script no
+    # servidor é a segunda linha de defesa.
+    concurrency:
+      group: deploy-api
+      cancel-in-progress: false
+    steps:
+      # Sem checkout: nada do repositório é usado aqui. Quem busca o código é
+      # o próprio servidor, com `git fetch`.
+      - name: Preparar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # known_hosts vem de secret em vez de StrictHostKeyChecking=no: sem
+          # isso o job aceitaria qualquer servidor que atendesse naquele
+          # endereço, e entregaria a chave de deploy para ele.
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # ssh direto, sem action de terceiro: são três linhas, e uma action de
+      # marketplace com acesso à chave de deploy é superfície que este projeto
+      # não precisa ter.
+      - name: Publicar
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+              -o IdentitiesOnly=yes \
+              -o ConnectTimeout=15 \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              deploy
+
+      - name: Conferir se a API pública respondeu
+        run: |
+          # O script já confere a saúde por dentro (127.0.0.1). Esta segunda
+          # checagem é pela porta de fora: pega o caso em que a API subiu mas
+          # o Caddy, o DNS ou o firewall ficaram no caminho.
+          curl -fsS --retry 5 --retry-delay 3 --max-time 10 \
+            "${{ secrets.DEPLOY_HEALTH_URL }}"

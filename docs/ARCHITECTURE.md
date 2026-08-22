@@ -73,7 +73,7 @@ variável de ambiente do backend.
 | Mexer na sincronização offline | `frontend/src/lib/sync.ts` — e rodar `cd frontend && npm test` (`frontend/testes/sync.test.ts` cobre fila, catálogo e estoque otimista com IndexedDB em memória) |
 | Mudar regra de sessão, permissão ou senha | `backend/src/middleware/auth.ts` (quem passa), `backend/src/services/authService.ts` (token), `backend/src/lib/senha.ts` (força da senha) — e rodar `npm test` |
 | Adicionar uma rota nova | Sempre embrulhar handler `async` em `assincrono(...)` de `backend/src/middleware/erros.ts` — sem isso, um erro do Prisma deixa a requisição pendurada (Express 4 não captura promise rejeitada) |
-| Publicar uma mudança em produção | `deploy/README-DEPLOY.md`, seção "Atualizando o sistema depois" |
+| Publicar uma mudança em produção | Nada a fazer: merge na `main` publica os dois lados (PWA no Cloudflare, API pelo job `deploy da API` em `.github/workflows/ci.yml`). Ver `deploy/README-DEPLOY.md`, seção 9 |
 
 ## Coisas que foram decididas de propósito e podem parecer estranhas
 

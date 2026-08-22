@@ -216,6 +216,14 @@ todo push na `main`: testes e typecheck do backend, aplicação das migrations
 num SQLite descartável, testes do frontend e build completo do PWA. O badge no
 topo mostra o estado da `main`.
 
+Depois do CI verde num push na `main`, o mesmo workflow **publica a API** por
+SSH: backup do banco, migrations, restart e health check — com rollback
+automático para o commit anterior se a API não responder. O PWA já se publicava
+sozinho pelo Cloudflare; automatizar o outro lado fecha a janela em que o app
+novo conversa com uma API que ainda não tem as rotas dele. A chave de deploy
+guardada no GitHub é presa a um único comando (`command=` no `authorized_keys`),
+então nem vazada ela abre um shell no servidor.
+
 ## Rodando localmente
 
 Precisa de Node 20+ e de dois terminais:
