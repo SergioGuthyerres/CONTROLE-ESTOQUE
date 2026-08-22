@@ -49,17 +49,34 @@ export interface MovimentacaoLocal {
   sincronizada: 0 | 1; // Dexie não indexa booleano bem — usar 0/1
 }
 
+// Atalhos de produto da tela de venda/compra, baixados junto com o catálogo.
+// Guardados aqui, e não buscados na hora, porque a tela de movimentação
+// precisa funcionar offline (RNF02) — inclusive no primeiro toque do dia,
+// antes de qualquer sincronização.
+export interface SugestoesLocais {
+  tipo: TipoMovimentacao; // chave primária: uma linha para "entrada", outra para "saida"
+  produtoIds: string[]; // já na ordem que o servidor considerou mais movimentada
+}
+
 class BancoLocal extends Dexie {
   produtos!: Table<ProdutoLocal, string>;
   categorias!: Table<CategoriaLocal, string>;
   movimentacoes!: Table<MovimentacaoLocal, string>;
+  sugestoes!: Table<SugestoesLocais, string>;
 
   constructor() {
     super("estoque-casa-do-campo");
+    // A versão 1 continua declarada: o Dexie usa a sequência de versões para
+    // migrar o banco que já existe no celular de quem usa o app. Apagar a
+    // versão antiga não "limpa" nada — faz o aparelho com dados antigos
+    // falhar ao abrir.
     this.version(1).stores({
       produtos: "id, nome, categoriaId",
       categorias: "id, nome",
       movimentacoes: "id, produtoId, sincronizada, criadoEm",
+    });
+    this.version(2).stores({
+      sugestoes: "tipo",
     });
   }
 }

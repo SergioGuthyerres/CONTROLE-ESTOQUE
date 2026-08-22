@@ -66,6 +66,7 @@ variável de ambiente do backend.
 | Adicionar um novo motivo de movimentação | `backend/src/lib/enums.ts` (`MOTIVOS_MOVIMENTACAO`, `MOTIVOS_POR_TIPO`) + espelhar em `frontend/src/lib/enums.ts` |
 | Mudar o texto/aparência de uma tela | `frontend/src/pages/*.tsx` — estilo vem das classes utilitárias em `frontend/src/index.css` (`.botao-grande`, `.campo`, `.cartao`) |
 | Resumir vendas/compras de um período | `backend/src/services/resumoService.ts` + a regra de classificação em `backend/src/lib/gruposDeMovimentacao.ts` |
+| Mudar os atalhos de produto da tela de venda/compra | `frontend/src/lib/sugestoes.ts` (ordem) + `GET /produtos/mais-movimentados` (o que a loja inteira movimenta) |
 | Filtrar por data em qualquer tela | `frontend/src/lib/datas.ts` — a conversão dia→instante é feita no navegador, que é quem conhece o fuso da loja; a API só compara instantes |
 | Adicionar um relatório novo | `backend/src/routes/relatorios.ts` + tela em `frontend/src/pages/admin/Relatorios.tsx` |
 | Desfazer/corrigir uma movimentação | `backend/src/services/estornoService.ts` (regra, pura e testada) + `POST /movimentacoes/:id/estorno` — nunca um DELETE |

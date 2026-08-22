@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const chamadas: { caminho: string; corpo?: unknown }[] = [];
 let produtosDoServidor: unknown[] = [];
 let categoriasDoServidor: unknown[] = [];
+let sugestoesDoServidor: string[] = [];
 
 vi.mock("../src/lib/api", () => ({
   api: async (caminho: string, opcoes?: RequestInit) => {
@@ -17,6 +18,7 @@ vi.mock("../src/lib/api", () => ({
     });
     if (caminho === "/produtos") return produtosDoServidor;
     if (caminho === "/categorias") return categoriasDoServidor;
+    if (caminho.startsWith("/produtos/mais-movimentados")) return sugestoesDoServidor;
     if (caminho === "/movimentacoes/sync") return { sincronizadas: 1 };
     throw new Error(`Rota não prevista no teste: ${caminho}`);
   },
@@ -58,10 +60,12 @@ function movimentacaoLocal(id: string, produtoId: string, quantidade: number) {
 beforeEach(async () => {
   chamadas.length = 0;
   categoriasDoServidor = [{ id: "cat-1", nome: "Ração" }];
+  sugestoesDoServidor = [];
   produtosDoServidor = [produtoApi("prod-1", "Ração 20kg", 10)];
   await db.produtos.clear();
   await db.categorias.clear();
   await db.movimentacoes.clear();
+  await db.sugestoes.clear();
 });
 
 describe("catálogo", () => {

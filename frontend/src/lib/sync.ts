@@ -20,9 +20,18 @@ interface CategoriaApi {
 // novo cadastrado no celular do dono, uma venda lançada por outro funcionário)
 // chega até aqui.
 export async function baixarCatalogo(): Promise<void> {
-  const [produtos, categorias] = await Promise.all([
+  const [produtos, categorias, sugestoesEntrada, sugestoesSaida] = await Promise.all([
     api<ProdutoApi[]>("/produtos"),
     api<CategoriaApi[]>("/categorias"),
+    // Atalhos da tela de venda/compra. Vêm junto com o catálogo, e não na
+    // hora de abrir a tela, porque essa tela precisa funcionar offline.
+    api<string[]>("/produtos/mais-movimentados?tipo=entrada"),
+    api<string[]>("/produtos/mais-movimentados?tipo=saida"),
+  ]);
+
+  await db.sugestoes.bulkPut([
+    { tipo: "entrada", produtoIds: sugestoesEntrada },
+    { tipo: "saida", produtoIds: sugestoesSaida },
   ]);
 
   await db.transaction("rw", db.produtos, db.categorias, async () => {
