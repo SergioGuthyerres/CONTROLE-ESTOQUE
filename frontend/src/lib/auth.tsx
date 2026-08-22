@@ -46,6 +46,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Confirma com o servidor quem é o usuário desta sessão e guarda o
+  // resultado. Falha de rede é ignorada de propósito — offline não pode
+  // significar deslogado (RNF02). Um 401 já derruba a sessão sozinho, pelo
+  // caminho de registrarAoPerderSessao acima.
+  const revalidarSessao = useCallback(() => {
+    return api<Usuario>("/auth/eu")
+      .then((atual) => {
+        setUsuario(atual);
+        localStorage.setItem(CHAVE_USUARIO, JSON.stringify(atual));
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const token = obterToken();
     const usuarioSalvo = localStorage.getItem(CHAVE_USUARIO);
@@ -62,23 +75,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Em seguida, e só se houver internet, confirma com o servidor que a
     // sessão ainda vale. É assim que um acesso revogado enquanto o celular
-    // estava offline cai assim que ele reconecta. Falha de rede é ignorada
-    // de propósito — offline não pode significar deslogado.
-    api<Usuario>("/auth/eu")
-      .then((atual) => {
-        setUsuario(atual);
-        localStorage.setItem(CHAVE_USUARIO, JSON.stringify(atual));
-      })
-      .catch(() => {});
-  }, []);
+    // estava offline cai assim que ele reconecta.
+    revalidarSessao();
+  }, [revalidarSessao]);
 
+  // O perfil também muda no servidor (o dono promove alguém a admin, ou
+  // rebaixa). Sem revalidar ao voltar para o app, a mudança só aparecia
+  // depois de sair da conta e entrar de novo — o app continuava mostrando o
+  // menu antigo enquanto a API já respondia pelo perfil novo.
   useEffect(() => {
     if (!usuario) return;
+    const aoVoltarAoApp = () => {
+      if (document.visibilityState === "visible") revalidarSessao();
+    };
+    document.addEventListener("visibilitychange", aoVoltarAoApp);
+    return () => document.removeEventListener("visibilitychange", aoVoltarAoApp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario?.usuarioId, revalidarSessao]);
+
+  // Depende dos campos, não do objeto: revalidarSessao troca a referência de
+  // `usuario` a cada volta ao app, e depender do objeto reiniciaria o laço de
+  // sincronização (com uma sincronização imediata junto) toda vez.
+  const usuarioId = usuario?.usuarioId;
+  const precisaTrocarSenha = usuario?.precisaTrocarSenha;
+
+  useEffect(() => {
+    if (!usuarioId) return;
     // Sincronização automática só faz sentido com sessão ativa. E não deve
     // rodar com senha provisória: o servidor recusaria tudo com 403.
-    if (usuario.precisaTrocarSenha) return;
+    if (precisaTrocarSenha) return;
     return iniciarSincronizacaoAutomatica();
-  }, [usuario]);
+  }, [usuarioId, precisaTrocarSenha]);
 
   function guardarSessao(token: string, dados: Usuario) {
     salvarToken(token);

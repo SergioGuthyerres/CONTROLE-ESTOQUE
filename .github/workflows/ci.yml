@@ -61,7 +61,7 @@ jobs:
         run: npx prisma migrate deploy
 
   frontend:
-    name: frontend (build)
+    name: frontend (testes e build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -75,6 +75,12 @@ jobs:
       - name: Instalar dependências
         working-directory: frontend
         run: npm ci
+
+      # Sincronização offline: fila local, catálogo e estoque otimista, com
+      # IndexedDB em memória (fake-indexeddb) — sem navegador.
+      - name: Testes
+        working-directory: frontend
+        run: npm test
 
       # `npm run build` = tsc -b (typecheck) + vite build + gerar-headers.mjs.
       # VITE_API_URL precisa existir: é dela que sai o connect-src da CSP, e o

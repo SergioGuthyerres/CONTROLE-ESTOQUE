@@ -66,8 +66,9 @@ checklist de segurança para conferir antes de entregar ao cliente.
 ## Testes e integração contínua
 
 ```bash
-cd backend && npm test      # regras de segurança, sem banco e offline
-cd backend && npm run typecheck
+cd backend  && npm test        # regras de segurança, sem banco e offline
+cd backend  && npm run typecheck
+cd frontend && npm test        # sincronização offline, com IndexedDB em memória
 cd frontend && npm run build   # o tsc -b faz o typecheck do PWA
 ```
 
@@ -83,10 +84,15 @@ Eles rodam com um Prisma falso em memória (`backend/testes/prismaFalso.ts`),
 então não precisam de banco, de engine nativo nem de internet — o que também
 os torna baratos de rodar no CI.
 
+No frontend, `frontend/testes/sync.test.ts` cobre a sincronização offline —
+a fila de movimentações, a atualização do catálogo e o estoque otimista
+mostrado na tela — com um IndexedDB em memória (`fake-indexeddb`), sem
+navegador.
+
 O [workflow do GitHub Actions](.github/workflows/ci.yml) roda em todo PR e em
 todo push na `main`: testes e typecheck do backend, aplicação das migrations
-num SQLite descartável, e build completo do PWA. O badge no topo mostra o
-estado da `main`.
+num SQLite descartável, testes do frontend e build completo do PWA. O badge no
+topo mostra o estado da `main`.
 
 ## Contribuindo
 

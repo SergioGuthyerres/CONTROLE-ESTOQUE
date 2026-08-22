@@ -34,9 +34,14 @@ frontend/ (PWA React)                    backend/ (API Express + Prisma)
 
 - O funcionário usa o app **offline por padrão**. Toda entrada/saída vira uma
   linha em `db.movimentacoes` (Dexie) com `sincronizada: 0`.
-- `src/lib/sync.ts` tenta sincronizar quando o navegador fica online, a cada
-  60s, e ao logar. Sempre que sincroniza com sucesso, também baixa de novo
-  produtos/categorias (`baixarCatalogo`) pra atualizar o cache local.
+- `src/lib/sync.ts` tenta sincronizar ao logar, quando o navegador fica
+  online, quando o app volta ao primeiro plano (`visibilitychange`) e a cada
+  60s. Um ciclo tem **duas metades independentes**: subir a fila
+  (`enviarMovimentacoesPendentes`) e baixar o catálogo (`baixarCatalogo`).
+  Elas precisam continuar independentes — quando baixar o catálogo era a
+  última linha do envio, um aparelho sem fila pendente nunca recebia o que
+  foi cadastrado em outro celular, e só sair da conta e entrar de novo
+  resolvia.
 - O admin também pode usar entrada/saída offline, mas dashboard/relatórios/
   histórico exigem internet (não fazem sentido offline — são leitura
   agregada do servidor).
@@ -59,6 +64,7 @@ variável de ambiente do backend.
 | Adicionar um novo motivo de movimentação | `backend/src/lib/enums.ts` (`MOTIVOS_MOVIMENTACAO`, `MOTIVOS_POR_TIPO`) + espelhar em `frontend/src/lib/enums.ts` |
 | Mudar o texto/aparência de uma tela | `frontend/src/pages/*.tsx` — estilo vem das classes utilitárias em `frontend/src/index.css` (`.botao-grande`, `.campo`, `.cartao`) |
 | Adicionar um relatório novo | `backend/src/routes/relatorios.ts` + tela em `frontend/src/pages/admin/Relatorios.tsx` |
+| Mexer na sincronização offline | `frontend/src/lib/sync.ts` — e rodar `cd frontend && npm test` (`frontend/testes/sync.test.ts` cobre fila, catálogo e estoque otimista com IndexedDB em memória) |
 | Mudar regra de sessão, permissão ou senha | `backend/src/middleware/auth.ts` (quem passa), `backend/src/services/authService.ts` (token), `backend/src/lib/senha.ts` (força da senha) — e rodar `npm test` |
 | Adicionar uma rota nova | Sempre embrulhar handler `async` em `assincrono(...)` de `backend/src/middleware/erros.ts` — sem isso, um erro do Prisma deixa a requisição pendurada (Express 4 não captura promise rejeitada) |
 | Publicar uma mudança em produção | `deploy/README-DEPLOY.md`, seção "Atualizando o sistema depois" |
