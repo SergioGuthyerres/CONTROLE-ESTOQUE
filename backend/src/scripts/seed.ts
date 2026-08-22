@@ -1,39 +1,48 @@
 // Popula o banco com usuários e produtos de exemplo — SOMENTE para dev/testes.
-// Rodar com: npm run seed
+// Rodar com: npm run seed:dev
 //
-// As senhas abaixo estão num repositório público. Elas existem só para não
-// atrapalhar quem está desenvolvendo; em produção o usuário do dono é criado
-// por `npm run criar-admin`, com senha que ninguém mais conhece.
+// As senhas são SORTEADAS a cada execução e impressas no terminal, em vez de
+// escritas aqui e documentadas no README. Senha de exemplo publicada num
+// repositório público é senha real no dia em que alguém a reaproveita — e,
+// antes disso, é um alarme para quem abre o repositório. Em produção o
+// usuário do dono é criado por `npm run criar-admin`.
 import { prisma } from "../lib/prisma";
 import { env } from "../lib/env";
-import { gerarHashSenha } from "../lib/senha";
+import { gerarHashSenha, gerarSenhaAleatoria } from "../lib/senha";
 
 async function main() {
-  // Este bloqueio é o que separa "senha de exemplo" de "porta aberta em
-  // produção". Sem ele, um `npm run seed` distraído no servidor recria o
-  // usuário admin/admin123 — que está documentado publicamente no README.
+  // Este bloqueio separa "banco de desenvolvimento" de "porta aberta em
+  // produção". Mesmo com senha sorteada, um seed distraído no servidor
+  // criaria usuários que ninguém pediu, com senhas que ficaram num terminal.
   if (env.emProducao) {
     console.error(
       "\nRecusando rodar o seed com NODE_ENV=production.\n" +
-        "Ele cria usuários com senhas de exemplo que são públicas neste repositório.\n" +
+        "Ele cria usuários de exemplo que não deveriam existir no banco da loja.\n" +
         "Para criar o usuário dos donos em produção use: npm run criar-admin\n"
     );
     process.exit(1);
   }
 
-  const senhaAdmin = await gerarHashSenha("admin123");
-  const senhaFuncionario = await gerarHashSenha("func123");
+  const senhaAdmin = gerarSenhaAleatoria(12);
+  const senhaFuncionario = gerarSenhaAleatoria(12);
 
+  // `update` também troca o hash: o seed é rodado várias vezes durante o
+  // desenvolvimento, e uma senha impressa que não funciona porque o usuário
+  // já existia é pior do que não imprimir nada.
   await prisma.usuario.upsert({
     where: { nome: "admin" },
-    update: {},
-    create: { nome: "admin", senhaHash: senhaAdmin, perfil: "admin" },
+    update: { senhaHash: await gerarHashSenha(senhaAdmin) },
+    create: { nome: "admin", senhaHash: await gerarHashSenha(senhaAdmin), perfil: "admin" },
   });
 
   await prisma.usuario.upsert({
     where: { nome: "funcionario" },
-    update: {},
-    create: { nome: "funcionario", senhaHash: senhaFuncionario, perfil: "funcionario" },
+    update: { senhaHash: await gerarHashSenha(senhaFuncionario) },
+    create: {
+      nome: "funcionario",
+      senhaHash: await gerarHashSenha(senhaFuncionario),
+      perfil: "funcionario",
+    },
   });
 
   const racao = await prisma.categoria.upsert({
@@ -71,7 +80,17 @@ async function main() {
     },
   });
 
-  console.log("Seed concluído. Usuários: admin/admin123 e funcionario/func123");
+  console.log(
+    [
+      "",
+      "Seed concluído. Estas senhas valem só neste banco de desenvolvimento",
+      "e mudam a cada execução — não vão para o repositório:",
+      "",
+      `  admin        ${senhaAdmin}`,
+      `  funcionario  ${senhaFuncionario}`,
+      "",
+    ].join("\n"),
+  );
 }
 
 main()

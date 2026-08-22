@@ -1,4 +1,4 @@
-# Especificação de Requisitos — Estoque Casa do Campo
+# Especificação de Requisitos — Casa do Campo Estoque
 
 > Detalha, em termos técnicos, o que está definido em
 > [documento-de-visao.md](./documento-de-visao.md). Qualquer mudança de

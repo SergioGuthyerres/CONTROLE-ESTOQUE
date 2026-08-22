@@ -1,4 +1,4 @@
-# Frontend — Estoque Casa do Campo
+# Frontend — Casa do Campo Estoque
 
 PWA em React + TypeScript + Vite, com dados locais em IndexedDB (via Dexie)
 para funcionar offline. Ver [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
@@ -13,7 +13,7 @@ npm run dev              # http://localhost:5173
 ```
 
 Precisa do backend rodando (ver `../backend/README.md`) e logado com um
-usuário do seed pra ter dados.
+usuário do `seed:dev` pra ter dados.
 
 ## Scripts
 
@@ -22,6 +22,8 @@ usuário do seed pra ter dados.
 | `npm run dev` | Sobe o app com hot reload |
 | `npm run build` | Build de produção (gera `dist/`, já com service worker/PWA) |
 | `npm run preview` | Serve o build de produção localmente, pra testar a PWA de verdade |
+| `npm test` | Testes da sincronização offline e das datas (vitest + fake-indexeddb) |
+| `npm run typecheck` | Só o `tsc -b`, sem gerar `dist/` |
 
 ## Estrutura
 
@@ -37,6 +39,8 @@ src/
 │  └─ enums.ts           motivos por tipo de movimentação
 ├─ components/          Peças reutilizáveis (busca de produto, layout, nav admin)
 └─ pages/                Uma tela por arquivo; pages/admin/ é só para "admin"
+
+testes/                 vitest; roda com IndexedDB em memória, sem navegador
 ```
 
 ## Instalar como app no celular (PWA)

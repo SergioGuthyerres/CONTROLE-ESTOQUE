@@ -9,7 +9,7 @@ export function Layout() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-marca text-white px-4 py-3 flex items-center justify-between">
         <Link to="/" className="font-semibold text-lg">
-          Estoque Casa do Campo
+          Casa do Campo
         </Link>
         <div className="flex items-center gap-3 text-sm">
           <IndicadorConexao />
