@@ -88,12 +88,28 @@ const RESUMO_LIGADO = { select: { id: true, criadoEm: true } };
 // "motivo" aceita a lista inteira, "estorno" incluído: aqui é leitura, e ver
 // só os estornos é justamente o filtro que interessa a quem confere o que foi
 // desfeito no mês.
-const filtrosSchema = z.object({
-  produtoId: z.string().min(1).max(60).optional(),
-  tipo: z.enum(TIPOS_MOVIMENTACAO).optional(),
-  motivo: z.enum(MOTIVOS_MOVIMENTACAO).optional(),
-  pagina: z.coerce.number().int().positive().default(1),
-});
+//
+// dataInicio/dataFim são instantes ISO completos, não datas soltas: quem
+// converte "o dia 21" nos instantes que delimitam esse dia é o navegador, que
+// é o único dos dois lados que conhece o fuso da loja (ver
+// frontend/src/lib/datas.ts). Aqui só se compara instante com instante.
+const filtrosSchema = z
+  .object({
+    produtoId: z.string().min(1).max(60).optional(),
+    tipo: z.enum(TIPOS_MOVIMENTACAO).optional(),
+    motivo: z.enum(MOTIVOS_MOVIMENTACAO).optional(),
+    dataInicio: z.coerce.date().optional(),
+    dataFim: z.coerce.date().optional(),
+    pagina: z.coerce.number().int().positive().default(1),
+  })
+  .refine(
+    (filtros) =>
+      !filtros.dataInicio || !filtros.dataFim || filtros.dataInicio <= filtros.dataFim,
+    {
+      message: "A data inicial precisa ser anterior à data final",
+      path: ["dataFim"],
+    },
+  );
 
 const POR_PAGINA = 50;
 
@@ -101,10 +117,18 @@ movimentacoesRouter.get("/", exigirPerfil("admin"), assincrono(async (req, res) 
   const parse = filtrosSchema.safeParse(req.query);
   if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
 
-  const { produtoId, tipo, motivo, pagina } = parse.data;
+  const { produtoId, tipo, motivo, dataInicio, dataFim, pagina } = parse.data;
   const porPagina = POR_PAGINA;
 
-  const filtro = { produtoId, tipo, motivo };
+  const filtro = {
+    produtoId,
+    tipo,
+    motivo,
+    // Sem nenhuma das duas datas, o objeto fica `{}` e o Prisma o ignora —
+    // por isso o intervalo é opcional dos dois lados: "a partir de tal dia"
+    // e "até tal dia" são buscas tão legítimas quanto o intervalo fechado.
+    criadoEm: { gte: dataInicio, lte: dataFim },
+  };
 
   const movimentacoes = await prisma.movimentacao.findMany({
     where: filtro,
