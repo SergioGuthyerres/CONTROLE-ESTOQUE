@@ -15,23 +15,46 @@ interface CategoriaApi {
   nome: string;
 }
 
+// Atalhos da tela de venda/compra. Baixados junto com o catálogo, e não na
+// hora de abrir a tela, porque essa tela precisa funcionar offline.
+//
+// Deliberadamente à prova de falha e SEPARADO do catálogo: atalho é
+// conveniência, catálogo é o app. Enquanto os dois vinham no mesmo
+// `Promise.all`, um 404 aqui rejeitava a promessa inteira e derrubava
+// produtos e categorias junto — o funcionário abria uma tela de venda sem
+// nenhum produto, e sem nada na tela explicando por quê.
+//
+// E 404 aqui não é hipótese: o PWA se publica sozinho a cada merge na main,
+// enquanto a API é atualizada à mão no servidor. Entre um deploy e outro, o
+// app novo conversa com a API antiga — que ainda não conhece as rotas novas.
+// Toda rota adicionada depois de uma versão já publicada precisa ser tratada
+// como opcional por este motivo.
+async function atualizarSugestoes(): Promise<void> {
+  const resultados = await Promise.allSettled([
+    api<string[]>("/produtos/mais-movimentados?tipo=entrada"),
+    api<string[]>("/produtos/mais-movimentados?tipo=saida"),
+  ]);
+
+  const tipos = ["entrada", "saida"] as const;
+  const novas = resultados.flatMap((resultado, indice) =>
+    resultado.status === "fulfilled"
+      ? [{ tipo: tipos[indice], produtoIds: resultado.value }]
+      : [],
+  );
+
+  // Só grava o que veio. Se a rota falhar, o aparelho segue com os atalhos da
+  // última vez que deu certo — melhor do que apagá-los.
+  if (novas.length > 0) await db.sugestoes.bulkPut(novas);
+}
+
 // Atualiza o cache local de produtos/categorias com o que está no servidor.
 // É o único caminho pelo qual uma mudança feita em OUTRO aparelho (um produto
 // novo cadastrado no celular do dono, uma venda lançada por outro funcionário)
 // chega até aqui.
 export async function baixarCatalogo(): Promise<void> {
-  const [produtos, categorias, sugestoesEntrada, sugestoesSaida] = await Promise.all([
+  const [produtos, categorias] = await Promise.all([
     api<ProdutoApi[]>("/produtos"),
     api<CategoriaApi[]>("/categorias"),
-    // Atalhos da tela de venda/compra. Vêm junto com o catálogo, e não na
-    // hora de abrir a tela, porque essa tela precisa funcionar offline.
-    api<string[]>("/produtos/mais-movimentados?tipo=entrada"),
-    api<string[]>("/produtos/mais-movimentados?tipo=saida"),
-  ]);
-
-  await db.sugestoes.bulkPut([
-    { tipo: "entrada", produtoIds: sugestoesEntrada },
-    { tipo: "saida", produtoIds: sugestoesSaida },
   ]);
 
   await db.transaction("rw", db.produtos, db.categorias, async () => {
@@ -64,6 +87,10 @@ export async function baixarCatalogo(): Promise<void> {
     const categoriasSumidas = categoriasLocais.filter((id) => !idsCategorias.has(id));
     if (categoriasSumidas.length > 0) await db.categorias.bulkDelete(categoriasSumidas);
   });
+
+  // Por último e sem `await` no caminho de erro: o catálogo já está salvo, e
+  // nada daqui para baixo pode desfazer isso.
+  await atualizarSugestoes().catch(() => {});
 }
 
 // Teto de movimentações por requisição. Precisa ser <= ao limite do zod em
