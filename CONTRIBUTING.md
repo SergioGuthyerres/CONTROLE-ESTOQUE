@@ -97,7 +97,8 @@ Em **Settings → Branches → Add branch ruleset**, para a branch `main`:
 
 - Restrict deletions
 - Require a pull request before merging
-- Require status checks to pass → marcar o check `testes`
+- Require status checks to pass → marcar `backend (testes e typecheck)`
+  e `frontend (build)`
 - Block force pushes
 
 Como o repositório é de um dono só, vale deixar

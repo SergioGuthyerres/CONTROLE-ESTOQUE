@@ -1,0 +1,87 @@
+name: CI
+
+# Roda em todo PR e em todo push na main. O push na main normalmente já vem de
+# um merge de PR que passou, mas rodar de novo é o que garante que o badge do
+# README reflete o estado real da main, e não o de uma branch.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# PR com vários pushes seguidos cancela a execução anterior — não adianta
+# gastar minuto de runner testando um commit que já foi substituído.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: backend (testes e typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: backend
+        run: npm ci
+
+      # O cliente do Prisma é gerado, não commitado: sem isto o tsc não
+      # conhece os tipos dos modelos e o typecheck vira decoração.
+      - name: Gerar cliente do Prisma
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Typecheck
+        working-directory: backend
+        run: npm run typecheck
+
+      # Os 15 testes de regra de segurança. Rodam com um Prisma falso em
+      # memória (testes/prismaFalso.ts), então não precisam de banco nem de
+      # variável de ambiente além das que o próprio teste define.
+      - name: Testes
+        working-directory: backend
+        run: npm test
+
+      # A migration é escrita à mão neste projeto. Aplicá-la num SQLite
+      # descartável é o que impede um SQL inválido de só aparecer no dia do
+      # deploy, no servidor, com o banco de verdade na frente.
+      - name: Aplicar migrations num banco descartável
+        working-directory: backend
+        env:
+          DATABASE_URL: "file:./ci.db"
+        run: npx prisma migrate deploy
+
+  frontend:
+    name: frontend (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: frontend
+        run: npm ci
+
+      # `npm run build` = tsc -b (typecheck) + vite build + gerar-headers.mjs.
+      # VITE_API_URL precisa existir: é dela que sai o connect-src da CSP, e o
+      # script falha de propósito se ela faltar. O valor aqui é só para o build
+      # de verificação — o valor real vive nas variáveis do Cloudflare.
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_URL: https://casadocampo.duckdns.org
+        run: npm run build
