@@ -375,13 +375,14 @@ escolha o repositório e configure:
 
 | Campo | Valor |
 |---|---|
-| Root directory | `frontend` |
+| Root directory | `frontend` (sem barra na frente — `/frontend` faz o build rodar na raiz do repositório e falhar com `Could not read package.json`) |
 | Build command | `npm run build` |
 | Deploy command | `npx wrangler deploy` |
 
-Se o nome do projeto criado no painel for diferente de `estoque-casa-do-campo`,
-ajuste o campo `name` em `frontend/wrangler.jsonc` para bater — senão o deploy
-cria um segundo projeto em vez de atualizar o seu.
+O campo `name` em `frontend/wrangler.jsonc` precisa ser **exatamente** o nome
+do Worker criado no painel (hoje: `controle-estoque`). Se não bater, o deploy
+não falha — ele cria um Worker novo, e o app que os donos usam fica parado na
+versão antiga sem nenhum erro para avisar.
 
 Em **Settings → Environment variables**, adicione (para Production **e** Preview):
 
@@ -396,7 +397,7 @@ inclusive a política que impede o app de mandar dados para qualquer outro
 servidor. Se a variável faltar, o build falha de propósito.
 
 Anote a URL que o Cloudflare gerar (algo como
-`estoque-casa-do-campo.SEU-SUBDOMINIO.workers.dev`), volte ao servidor e coloque-a em
+`controle-estoque.SEU-SUBDOMINIO.workers.dev`), volte ao servidor e coloque-a em
 `FRONTEND_URL`:
 
 ```bash

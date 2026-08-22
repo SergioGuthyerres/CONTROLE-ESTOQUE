@@ -9,7 +9,12 @@
   // de arquivos estáticos: nenhum plugin, nenhum código rodando no servidor,
   // e a versão do Vite deixa de importar.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "estoque-casa-do-campo",
+  // Precisa ser EXATAMENTE o nome do Worker no painel do Cloudflare: é dele
+  // que sai o subdomínio (controle-estoque.<subdominio>.workers.dev) e é por
+  // ele que o `wrangler deploy` decide o que atualizar. Com um nome que não
+  // existe, o deploy não falha — ele cria um Worker novo, e a aplicação que os
+  // donos usam continua parada na versão antiga sem ninguém perceber.
+  "name": "controle-estoque",
   "compatibility_date": "2026-08-17",
 
   "assets": {
