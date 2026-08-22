@@ -9,11 +9,32 @@ import {
   periodoInvertido,
   type Periodo,
 } from "../../components/SeletorDePeriodo";
+import { ROTULO_MOTIVO, ROTULO_TIPO } from "../../lib/enums";
+import type { MotivoMovimentacao, TipoMovimentacao } from "../../db/db";
+
+interface TotalPorTipo {
+  quantidade: number;
+  valor: number;
+  movimentacoes: number;
+}
+
+interface DetalheDeMotivo {
+  tipo: TipoMovimentacao;
+  motivo: MotivoMovimentacao;
+  quantidade: number;
+  valor: number;
+  movimentacoes: number;
+}
 
 interface LinhaMovimentacao {
   produtoId: string;
   produtoNome: string;
+  unidade: string;
   totalMovimentado: number;
+  entradas: TotalPorTipo;
+  saidas: TotalPorTipo;
+  saldo: number;
+  porMotivo: DetalheDeMotivo[];
 }
 interface LinhaValor {
   produtoId: string;
@@ -108,12 +129,7 @@ export function Relatorios() {
 
         <ol className="divide-y divide-gray-200">
           {maisMovimentados?.map((linha, indice) => (
-            <li key={linha.produtoId} className="py-2 text-sm flex justify-between">
-              <span>
-                {indice + 1}. {linha.produtoNome}
-              </span>
-              <span className="text-gray-500">{linha.totalMovimentado}</span>
-            </li>
+            <LinhaDoRelatorio key={linha.produtoId} posicao={indice + 1} linha={linha} />
           ))}
         </ol>
       </div>
@@ -140,5 +156,70 @@ export function Relatorios() {
         Sair
       </Link>
     </div>
+  );
+}
+
+// Uma linha por produto, com o detalhe escondido até alguém pedir. O total
+// sozinho ("20 movimentados") mistura o que entrou com o que saiu e é fácil de
+// ler errado; o detalhe responde as outras perguntas sem transformar a tela
+// num relatório de contador.
+function LinhaDoRelatorio(props: { posicao: number; linha: LinhaMovimentacao }) {
+  const [aberta, setAberta] = useState(false);
+  const { linha } = props;
+  const unidade = linha.unidade ? ` ${linha.unidade}` : "";
+
+  return (
+    <li className="py-2 text-sm">
+      <button
+        type="button"
+        className="w-full text-left"
+        onClick={() => setAberta((estava) => !estava)}
+      >
+        <div className="flex justify-between gap-2">
+          <span>
+            {props.posicao}. {linha.produtoNome}
+          </span>
+          <span className="text-gray-500 whitespace-nowrap">
+            {linha.totalMovimentado}
+            {unidade} {aberta ? "▴" : "▾"}
+          </span>
+        </div>
+        <div className="text-xs text-gray-500">
+          <span className="text-green-700">
+            ↑ {linha.entradas.quantidade}
+            {unidade}
+          </span>{" "}
+          ·{" "}
+          <span className="text-red-700">
+            ↓ {linha.saidas.quantidade}
+            {unidade}
+          </span>{" "}
+          · saldo {linha.saldo > 0 ? "+" : ""}
+          {linha.saldo}
+          {unidade}
+        </div>
+      </button>
+
+      {aberta && (
+        <ul className="mt-2 ml-3 border-l border-gray-200 pl-3 space-y-1">
+          {linha.porMotivo.map((detalhe) => (
+            <li
+              key={`${detalhe.tipo}-${detalhe.motivo}`}
+              className="text-xs flex justify-between gap-2"
+            >
+              <span className={detalhe.tipo === "entrada" ? "text-green-700" : "text-red-700"}>
+                {ROTULO_TIPO[detalhe.tipo]} · {ROTULO_MOTIVO[detalhe.motivo]}
+              </span>
+              <span className="text-gray-500 whitespace-nowrap">
+                {detalhe.quantidade}
+                {unidade} em {detalhe.movimentacoes} lançamento
+                {detalhe.movimentacoes === 1 ? "" : "s"}
+                {detalhe.valor > 0 && ` · ${reais(detalhe.valor)}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }

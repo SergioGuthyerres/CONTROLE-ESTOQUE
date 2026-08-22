@@ -34,6 +34,12 @@ export type MotivoMovimentacao = (typeof MOTIVOS_MOVIMENTACAO)[number];
 
 export const MOTIVO_ESTORNO = "estorno" satisfies MotivoMovimentacao;
 
+// Ordem de exibição dos motivos em listas e relatórios. É a ordem de
+// MOTIVOS_MOVIMENTACAO, num nome que deixa claro para que serve: um
+// relatório que troca a ordem das linhas a cada consulta é impossível de
+// comparar com o da semana passada.
+export const ROTULO_ORDEM_MOTIVOS: readonly MotivoMovimentacao[] = MOTIVOS_MOVIMENTACAO;
+
 // Mapa de qual "motivo" é permitido para cada "tipo" — evita, por exemplo,
 // registrar um "motivo: venda" dentro de um "tipo: entrada". É também a lista
 // do que um humano pode escolher na tela: o que não está aqui, ninguém digita.

@@ -5,6 +5,8 @@ import { exigirAutenticacao, exigirPerfil } from "../middleware/auth";
 import { calcularValorTotalEstoque } from "../services/stockService";
 import { assincrono } from "../middleware/erros";
 import { resumirPeriodo } from "../services/resumoService";
+import { montarRelatorioPorProduto } from "../lib/agregacaoMovimentacao";
+import type { MotivoMovimentacao, TipoMovimentacao } from "../lib/enums";
 
 export const relatoriosRouter = Router();
 relatoriosRouter.use(exigirAutenticacao, exigirPerfil("admin"));
@@ -34,8 +36,10 @@ relatoriosRouter.get("/movimentacao-por-produto", assincrono(async (req, res) =>
 
   const { dataInicio, dataFim } = parse.data;
 
+  // Agrupado também por tipo e motivo: é o que permite dizer QUANTO entrou,
+  // quanto saiu e por quê, em vez de um total só que mistura os dois.
   const agrupado = await prisma.movimentacao.groupBy({
-    by: ["produtoId"],
+    by: ["produtoId", "tipo", "motivo"],
     where: {
       criadoEm: {
         gte: dataInicio,
@@ -48,23 +52,28 @@ relatoriosRouter.get("/movimentacao-por-produto", assincrono(async (req, res) =>
       motivo: { not: "estorno" },
       estorno: { is: null },
     },
-    _sum: { quantidade: true },
+    _sum: { quantidade: true, valor: true },
+    _count: { _all: true },
   });
 
   const produtos = await prisma.produto.findMany({
     where: { id: { in: agrupado.map((linha) => linha.produtoId) } },
+    select: { id: true, nome: true, unidade: true },
   });
-  const nomePorId = new Map(produtos.map((p) => [p.id, p.nome]));
 
-  const resultado = agrupado
-    .map((linha) => ({
-      produtoId: linha.produtoId,
-      produtoNome: nomePorId.get(linha.produtoId) ?? "(produto removido)",
-      totalMovimentado: Number(linha._sum.quantidade ?? 0),
-    }))
-    .sort((a, b) => b.totalMovimentado - a.totalMovimentado);
-
-  res.json(resultado);
+  res.json(
+    montarRelatorioPorProduto(
+      agrupado.map((linha) => ({
+        produtoId: linha.produtoId,
+        tipo: linha.tipo as TipoMovimentacao,
+        motivo: linha.motivo as MotivoMovimentacao,
+        quantidade: Number(linha._sum.quantidade ?? 0),
+        valor: Number(linha._sum.valor ?? 0),
+        movimentacoes: linha._count._all,
+      })),
+      produtos,
+    ),
+  );
 }));
 
 // Conferência de caixa: o que foi vendido, o que foi comprado e o que mais
