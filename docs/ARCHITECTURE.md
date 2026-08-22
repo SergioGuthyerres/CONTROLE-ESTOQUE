@@ -14,7 +14,9 @@ Este arquivo é o atalho. Para o "porquê" completo de cada decisão, ver
 2. **`Movimentacao` é append-only.** Não existe rota PUT/DELETE para
    movimentação, de propósito. Uma correção é sempre um novo registro. Isso é
    o que permite sincronizar dois dispositivos sem conflito de sobrescrita
-   (ver seção 5.2 do documento de visão).
+   (ver seção 5.2 do documento de visão). O "Desfazer" do histórico não é
+   exceção: ele cria a movimentação inversa e a liga à original por
+   `estornoDeId` (`backend/src/services/estornoService.ts`).
 
 3. **`tipo` só tem `entrada` e `saida`, nunca um terceiro valor.** Ajuste de
    inventário (contagem física) é `entrada` (achou a mais) ou `saida` (achou
@@ -64,6 +66,7 @@ variável de ambiente do backend.
 | Adicionar um novo motivo de movimentação | `backend/src/lib/enums.ts` (`MOTIVOS_MOVIMENTACAO`, `MOTIVOS_POR_TIPO`) + espelhar em `frontend/src/lib/enums.ts` |
 | Mudar o texto/aparência de uma tela | `frontend/src/pages/*.tsx` — estilo vem das classes utilitárias em `frontend/src/index.css` (`.botao-grande`, `.campo`, `.cartao`) |
 | Adicionar um relatório novo | `backend/src/routes/relatorios.ts` + tela em `frontend/src/pages/admin/Relatorios.tsx` |
+| Desfazer/corrigir uma movimentação | `backend/src/services/estornoService.ts` (regra, pura e testada) + `POST /movimentacoes/:id/estorno` — nunca um DELETE |
 | Mexer na sincronização offline | `frontend/src/lib/sync.ts` — e rodar `cd frontend && npm test` (`frontend/testes/sync.test.ts` cobre fila, catálogo e estoque otimista com IndexedDB em memória) |
 | Mudar regra de sessão, permissão ou senha | `backend/src/middleware/auth.ts` (quem passa), `backend/src/services/authService.ts` (token), `backend/src/lib/senha.ts` (força da senha) — e rodar `npm test` |
 | Adicionar uma rota nova | Sempre embrulhar handler `async` em `assincrono(...)` de `backend/src/middleware/erros.ts` — sem isso, um erro do Prisma deixa a requisição pendurada (Express 4 não captura promise rejeitada) |

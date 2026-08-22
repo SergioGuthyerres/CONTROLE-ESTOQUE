@@ -4,6 +4,25 @@
 // (zod), então o pior caso é uma mensagem de erro, não dado inconsistente.
 import type { MotivoMovimentacao, TipoMovimentacao } from "../db/db";
 
+// Rótulos para exibir uma movimentação que já existe (histórico, relatórios).
+// Inclui "estorno", que NÃO aparece em MOTIVOS_POR_TIPO logo abaixo porque
+// ninguém escolhe esse motivo na tela — ele só nasce quando um admin desfaz
+// uma movimentação pelo histórico.
+export const ROTULO_MOTIVO: Record<MotivoMovimentacao, string> = {
+  compra: "Compra",
+  devolucao: "Devolução",
+  venda: "Venda",
+  perda: "Perda",
+  uso_interno: "Uso interno",
+  inventario: "Ajuste de inventário",
+  estorno: "Estorno",
+};
+
+export const ROTULO_TIPO: Record<TipoMovimentacao, string> = {
+  entrada: "Entrada",
+  saida: "Saída",
+};
+
 export const MOTIVOS_POR_TIPO: Record<TipoMovimentacao, { valor: MotivoMovimentacao; rotulo: string }[]> = {
   entrada: [
     { valor: "compra", rotulo: "Compra" },

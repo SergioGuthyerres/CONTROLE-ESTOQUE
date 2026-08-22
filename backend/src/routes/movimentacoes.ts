@@ -1,9 +1,11 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { exigirAutenticacao, exigirPerfil } from "../middleware/auth";
 import { MOTIVOS_POR_TIPO, TIPOS_MOVIMENTACAO, MOTIVOS_MOVIMENTACAO } from "../lib/enums";
 import { assincrono } from "../middleware/erros";
+import { dadosDoEstorno } from "../services/estornoService";
 
 export const movimentacoesRouter = Router();
 movimentacoesRouter.use(exigirAutenticacao);
@@ -72,6 +74,12 @@ movimentacoesRouter.post("/sync", assincrono(async (req, res) => {
 }));
 
 // RF13: histórico/auditoria, somente leitura, só admin.
+//
+// "estorno" e "estornoDe" vêm junto porque a tela precisa saber, de cada
+// linha, se ela já foi desfeita (então não oferece o botão) e se ela é o
+// desfazer de outra (então mostra de qual).
+const RESUMO_LIGADO = { select: { id: true, criadoEm: true } };
+
 movimentacoesRouter.get("/", exigirPerfil("admin"), assincrono(async (req, res) => {
   const produtoId = typeof req.query.produtoId === "string" ? req.query.produtoId : undefined;
   const pagina = Math.max(1, Number(req.query.pagina ?? 1));
@@ -79,7 +87,12 @@ movimentacoesRouter.get("/", exigirPerfil("admin"), assincrono(async (req, res) 
 
   const movimentacoes = await prisma.movimentacao.findMany({
     where: produtoId ? { produtoId } : undefined,
-    include: { produto: true, usuario: { select: { id: true, nome: true } } },
+    include: {
+      produto: true,
+      usuario: { select: { id: true, nome: true } },
+      estorno: RESUMO_LIGADO,
+      estornoDe: RESUMO_LIGADO,
+    },
     orderBy: { criadoEm: "desc" },
     skip: (pagina - 1) * porPagina,
     take: porPagina,
@@ -87,3 +100,38 @@ movimentacoesRouter.get("/", exigirPerfil("admin"), assincrono(async (req, res) 
 
   res.json(movimentacoes);
 }));
+
+// Desfazer uma movimentação lançada por engano (venda digitada duas vezes,
+// quantidade errada, produto trocado). Não apaga nada: cria a movimentação
+// inversa — ver src/services/estornoService.ts para o porquê.
+//
+// Só admin. O funcionário que erra avisa a dona; quem desfaz é quem responde
+// pelo estoque, e o histórico registra quem foi.
+movimentacoesRouter.post(
+  "/:id/estorno",
+  exigirPerfil("admin"),
+  assincrono(async (req, res) => {
+    const original = await prisma.movimentacao.findUnique({
+      where: { id: req.params.id },
+      include: { estorno: { select: { id: true } } },
+    });
+
+    if (!original) return res.status(404).json({ erro: "Movimentação não encontrada" });
+
+    const dados = dadosDoEstorno(original, req.usuario!.usuarioId);
+
+    // O índice único em estornoDeId é a última linha de defesa: dois cliques
+    // simultâneos passam os dois pela checagem acima, e é o banco que recusa
+    // o segundo (P2002 → 409 no tratador global de erros).
+    const estorno = await prisma.movimentacao.create({
+      data: { ...dados, id: randomUUID() },
+      include: {
+        produto: true,
+        usuario: { select: { id: true, nome: true } },
+        estornoDe: RESUMO_LIGADO,
+      },
+    });
+
+    res.status(201).json(estorno);
+  }),
+);

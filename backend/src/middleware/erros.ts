@@ -1,6 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { env } from "../lib/env";
+import { ErroHttp } from "../lib/erroHttp";
+
+// Reexportado para não quebrar quem já importava ErroHttp deste módulo.
+export { ErroHttp };
 
 // O Express 4 NÃO captura exceções lançadas dentro de handlers async: a
 // promise rejeita, ninguém chama next(erro) e a requisição fica pendurada até
@@ -21,11 +25,6 @@ function erroDePrisma(erro: unknown): string | null {
   return typeof codigo === "string" && /^P\d{4}$/.test(codigo) ? codigo : null;
 }
 
-export class ErroHttp extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
 
 export function tratadorDeErros(
   erro: unknown,

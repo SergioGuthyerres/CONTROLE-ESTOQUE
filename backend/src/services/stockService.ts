@@ -57,7 +57,21 @@ export async function calcularValorTotalEstoque() {
     calcularEstoqueEmLote(produtoIds),
     prisma.movimentacao.groupBy({
       by: ["produtoId"],
-      where: { produtoId: { in: produtoIds }, tipo: "entrada" },
+      where: {
+        produtoId: { in: produtoIds },
+        tipo: "entrada",
+        // Duas exclusões, pelo mesmo motivo: só entra no custo médio dinheiro
+        // que foi de fato gasto comprando este produto.
+        //
+        // - motivo "estorno": o estorno de uma venda é uma entrada com o VALOR
+        //   DA VENDA. Contá-la como compra inflaria o custo médio com preço de
+        //   venda, e o RF12 passaria a somar lucro dentro do valor do estoque.
+        // - entradas já estornadas: a compra foi desfeita, o dinheiro não foi
+        //   gasto; deixá-la aqui manteria no custo médio uma compra que a
+        //   dona já disse que não aconteceu.
+        motivo: { not: "estorno" },
+        estorno: { is: null },
+      },
       _sum: { quantidade: true, valor: true },
     }),
   ]);
