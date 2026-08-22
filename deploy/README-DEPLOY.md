@@ -537,13 +537,26 @@ ele volta o código para o commit anterior, sobe de novo e falha o job.
 
 **Configuração, uma vez só.**
 
-No servidor, crie uma chave exclusiva do deploy (sem senha, porque quem a usa
-é uma máquina):
+O usuário `estoque` foi criado com `--shell /usr/sbin/nologin` (seção 3), e é
+assim que ele deve continuar: conta de serviço que aceita login é porta a mais.
+Só que sem shell o SSH recusa a conexão — nem com forced command. Então o
+deploy entra por um usuário separado, que existe só para isso:
 
 ```bash
-sudo -u estoque ssh-keygen -t ed25519 -N '' -C 'deploy github actions' \
-  -f /home/estoque/.ssh/deploy_actions
+sudo useradd --create-home --shell /bin/bash deploy
+sudo -u deploy mkdir -p -m 700 /home/deploy/.ssh
 ```
+
+Gere a chave exclusiva do deploy **no seu computador**, não no servidor (sem
+senha, porque quem vai usá-la é uma máquina):
+
+```bash
+ssh-keygen -t ed25519 -N '' -C 'deploy github actions' -f ~/.ssh/deploy_actions
+```
+
+Gerar aqui e não lá é de propósito: para o servidor sobe só a chave **pública**,
+e a privada nunca chega a existir na máquina que ela destranca. Se fosse gerada
+lá e baixada, ficaria uma cópia no servidor para alguém encontrar depois.
 
 Instale o script e a regra de sudo:
 
@@ -555,31 +568,46 @@ sudo visudo -c
 
 Autorize a chave **presa a um único comando** — é o que separa "uma chave que
 publica a API" de "uma chave que dá acesso ao servidor". Com `command=`, o SSH
-ignora o que o cliente pedir e executa só o deploy; os `no-*` desligam túnel,
-encaminhamento e terminal:
+ignora o que o cliente pedir e executa só isso; os `no-*` desligam túnel,
+encaminhamento e terminal. O `sudo -u estoque` no meio é o que faz o script
+rodar como dono dos arquivos, sem que o `deploy` precise de poder nenhum:
+
+No seu computador, mostre a chave pública e copie a linha inteira:
 
 ```bash
-sudo -u estoque bash -c 'cat >> /home/estoque/.ssh/authorized_keys' <<EOF
-command="/usr/local/bin/deploy-estoque",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding $(sudo cat /home/estoque/.ssh/deploy_actions.pub)
+cat ~/.ssh/deploy_actions.pub
+```
+
+No servidor, cole-a no fim do comando abaixo, no lugar de `COLE-A-CHAVE-PUBLICA-AQUI`:
+
+```bash
+sudo -u deploy tee -a /home/deploy/.ssh/authorized_keys >/dev/null <<'EOF'
+command="sudo -u estoque /usr/local/bin/deploy-estoque",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding COLE-A-CHAVE-PUBLICA-AQUI
 EOF
+sudo -u deploy chmod 600 /home/deploy/.ssh/authorized_keys
 ```
 
-Confira do seu computador que a chave só faz isso — o segundo comando tem de
-ser recusado:
+De volta ao seu computador, confirme que a chave só faz uma coisa. Troque
+`SEU-IP` pelo IP público da instância (o mesmo que você usa para entrar no
+servidor):
 
 ```bash
-ssh -i deploy_actions estoque@SEU-IP        # roda o deploy e sai
-ssh -i deploy_actions estoque@SEU-IP whoami # ignora o "whoami" e roda o deploy
+ssh -i ~/.ssh/deploy_actions deploy@SEU-IP        # roda o deploy e sai
+ssh -i ~/.ssh/deploy_actions deploy@SEU-IP whoami # ignora o "whoami" e roda o deploy
 ```
+
+Se o segundo comando imprimir `deploy`, o `command=` não pegou: a chave está
+valendo como acesso ao servidor. Pare e confira o `authorized_keys` antes de
+seguir.
 
 No GitHub, em **Settings → Secrets and variables → Actions**, crie:
 
 | Secret | Valor |
 |---|---|
-| `DEPLOY_SSH_KEY` | conteúdo de `deploy_actions` (a chave **privada**, inteira, com as linhas BEGIN/END) |
+| `DEPLOY_SSH_KEY` | saída de `cat ~/.ssh/deploy_actions` — a chave **privada**, inteira, com as linhas BEGIN/END |
 | `DEPLOY_KNOWN_HOSTS` | saída de `ssh-keyscan SEU-IP` |
 | `DEPLOY_HOST` | IP público ou domínio do servidor |
-| `DEPLOY_USER` | `estoque` |
+| `DEPLOY_USER` | `deploy` |
 | `DEPLOY_HEALTH_URL` | `https://api.SEU-DOMINIO.com/health` |
 
 `DEPLOY_KNOWN_HOSTS` não é burocracia: sem ele o job aceitaria qualquer
@@ -638,7 +666,8 @@ Antes de considerar o sistema entregue:
 - [ ] `TRUST_PROXY=true` no `.env` de produção
 - [ ] Cron de backup instalado e testado à mão pelo menos uma vez
 - [ ] Cópia dos backups saindo da VPS
-- [ ] Chave de deploy presa a `command="/usr/local/bin/deploy-estoque"` — `ssh ... whoami` recusa
+- [ ] Chave de deploy presa a `command="sudo -u estoque /usr/local/bin/deploy-estoque"` — `ssh ... whoami` ignora o comando
+- [ ] `estoque` continua com `/usr/sbin/nologin`: `sudo -u estoque -s` recusa
 - [ ] Dono trocou a senha provisória, se foi criada com `--gerar-senha`
 - [ ] Funcionário instalou o PWA e conseguiu registrar uma saída de estoque
 

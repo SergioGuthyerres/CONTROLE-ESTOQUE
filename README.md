@@ -221,8 +221,9 @@ SSH: backup do banco, migrations, restart e health check — com rollback
 automático para o commit anterior se a API não responder. O PWA já se publicava
 sozinho pelo Cloudflare; automatizar o outro lado fecha a janela em que o app
 novo conversa com uma API que ainda não tem as rotas dele. A chave de deploy
-guardada no GitHub é presa a um único comando (`command=` no `authorized_keys`),
-então nem vazada ela abre um shell no servidor.
+guardada no GitHub é presa a um único comando (`command=` no `authorized_keys`)
+e entra por um usuário que não roda nada — a conta que roda a API continua sem
+shell. Vazada, a chave publica a API e nada além disso.
 
 ## Rodando localmente
 

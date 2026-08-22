@@ -4,11 +4,22 @@
 #     /opt/estoque/deploy/estoque-deploy.sudoers /etc/sudoers.d/estoque-deploy
 #   sudo visudo -c            # confirma que a sintaxe está válida
 #
-# O deploy roda como "estoque", que é um usuário sem privilégio. A única coisa
-# que ele precisa de root é reiniciar o serviço — e é só isso que está liberado
-# aqui, nominalmente. Um `NOPASSWD: ALL` resolveria a mesma linha do script e
-# transformaria a chave de deploy num acesso root ao servidor.
+# São dois usuários, de propósito:
 #
-# Comando escrito por extenso, sem curinga: `systemctl restart *` deixaria
-# reiniciar (ou parar) qualquer serviço da máquina, o sshd inclusive.
+# "estoque" roda a API. Ele foi criado com --shell /usr/sbin/nologin, e é assim
+# que tem de continuar: uma conta de serviço que aceita login é uma conta a
+# mais para alguém entrar. Por isso o SSH do deploy NÃO chega nele.
+#
+# "deploy" existe só para receber a conexão do GitHub Actions. Não roda nada,
+# não tem dado nenhum, e a única coisa que consegue fazer é pedir ao sudo para
+# executar o script de deploy como "estoque" — que é quem precisa ser o dono
+# dos arquivos que o git e o npm escrevem.
+
+# O que a chave do GitHub consegue fazer no servidor, na íntegra.
+deploy ALL=(estoque) NOPASSWD: /usr/local/bin/deploy-estoque
+
+# E o que o script consegue fazer de root: reiniciar UM serviço. Escrito por
+# extenso, sem curinga — `systemctl restart *` deixaria parar qualquer serviço
+# da máquina, o sshd inclusive. Um `NOPASSWD: ALL` resolveria a mesma linha do
+# script e transformaria a chave de deploy num acesso root ao servidor.
 estoque ALL=(root) NOPASSWD: /usr/bin/systemctl restart estoque-api
