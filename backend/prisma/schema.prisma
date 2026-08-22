@@ -91,4 +91,7 @@ model Movimentacao {
 
   @@index([produtoId])
   @@index([criadoEm])
+  // Consulta mais comum do histórico depois dos filtros: as movimentações de
+  // um tipo, das mais recentes para as mais antigas.
+  @@index([tipo, criadoEm])
 }

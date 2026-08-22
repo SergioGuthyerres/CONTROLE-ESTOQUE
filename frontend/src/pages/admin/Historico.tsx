@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ErroApi } from "../../lib/api";
 import { AdminNav } from "../../components/AdminNav";
 import { Link } from "react-router-dom";
-import { ROTULO_MOTIVO, ROTULO_TIPO } from "../../lib/enums";
+import { MOTIVOS_POR_TIPO, ROTULO_MOTIVO, ROTULO_TIPO } from "../../lib/enums";
 import { baixarCatalogo } from "../../lib/sync";
 import type { MotivoMovimentacao, TipoMovimentacao } from "../../db/db";
 
@@ -27,6 +27,16 @@ interface MovimentacaoApi {
   estornoDe: LigacaoEstorno | null;
 }
 
+type FiltroTipo = TipoMovimentacao | "todos";
+type FiltroMotivo = MotivoMovimentacao | "todos";
+
+// Os motivos possíveis mudam conforme o tipo escolhido — mostrar "Venda" como
+// opção enquanto o filtro está em "Entradas" só rende lista vazia.
+function motivosDisponiveis(tipo: FiltroTipo): MotivoMovimentacao[] {
+  if (tipo === "todos") return Object.keys(ROTULO_MOTIVO) as MotivoMovimentacao[];
+  return [...MOTIVOS_POR_TIPO[tipo].map((m) => m.valor), "estorno"];
+}
+
 // RF13: histórico/auditoria. Continua sendo append-only — "Desfazer" não apaga
 // nem edita nada, cria a movimentação inversa (ver
 // backend/src/services/estornoService.ts). Por isso o erro e a correção
@@ -36,18 +46,40 @@ export function Historico() {
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [desfazendo, setDesfazendo] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [tipo, setTipo] = useState<FiltroTipo>("todos");
+  const [motivo, setMotivo] = useState<FiltroMotivo>("todos");
 
   const carregar = useCallback(async () => {
+    const parametros = new URLSearchParams();
+    if (tipo !== "todos") parametros.set("tipo", tipo);
+    if (motivo !== "todos") parametros.set("motivo", motivo);
+    const consulta = parametros.toString();
+
     try {
-      setMovimentacoes(await api<MovimentacaoApi[]>("/movimentacoes"));
+      setErro(null);
+      // Enquanto carrega, a lista some: manter a anterior na tela depois de
+      // trocar o filtro faria parecer que o filtro não fez efeito.
+      setMovimentacoes(null);
+      setMovimentacoes(
+        await api<MovimentacaoApi[]>(`/movimentacoes${consulta ? `?${consulta}` : ""}`),
+      );
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar o histórico.");
     }
-  }, []);
+  }, [tipo, motivo]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  function trocarTipo(novo: FiltroTipo) {
+    setTipo(novo);
+    // Um motivo que não existe no tipo novo devolveria lista vazia sem que
+    // ninguém entendesse por quê.
+    if (motivo !== "todos" && !motivosDisponiveis(novo).includes(motivo)) {
+      setMotivo("todos");
+    }
+  }
 
   async function desfazer(id: string) {
     setErro(null);
@@ -74,6 +106,44 @@ export function Historico() {
     <div className="space-y-4 pt-2">
       <h1 className="text-lg font-semibold">Histórico de Movimentações</h1>
       <AdminNav />
+
+      <div className="cartao space-y-3">
+        <div>
+          <label className="block text-sm mb-1">Tipo</label>
+          <div className="flex gap-2">
+            {(["todos", "entrada", "saida"] as FiltroTipo[]).map((opcao) => (
+              <button
+                key={opcao}
+                type="button"
+                onClick={() => trocarTipo(opcao)}
+                className={`flex-1 py-2 rounded-lg text-sm border ${
+                  tipo === opcao
+                    ? "bg-marca text-white border-transparent"
+                    : "bg-white text-gray-700 border-gray-300"
+                }`}
+              >
+                {opcao === "todos" ? "Todas" : ROTULO_TIPO[opcao]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Motivo</label>
+          <select
+            className="campo"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value as FiltroMotivo)}
+          >
+            <option value="todos">Todos os motivos</option>
+            {motivosDisponiveis(tipo).map((valor) => (
+              <option key={valor} value={valor}>
+                {ROTULO_MOTIVO[valor]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
@@ -147,8 +217,15 @@ export function Historico() {
             )}
           </li>
         ))}
+        {movimentacoes === null && (
+          <li className="py-2 text-sm text-gray-500">Carregando...</li>
+        )}
         {movimentacoes?.length === 0 && (
-          <li className="py-2 text-sm text-gray-500">Nenhuma movimentação ainda.</li>
+          <li className="py-2 text-sm text-gray-500">
+            {tipo === "todos" && motivo === "todos"
+              ? "Nenhuma movimentação ainda."
+              : "Nenhuma movimentação com esses filtros."}
+          </li>
         )}
       </ul>
       <Link to="/" className="botao-medio block text-center bg-gray-700">

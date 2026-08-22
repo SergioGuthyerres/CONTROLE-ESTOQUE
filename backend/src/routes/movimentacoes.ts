@@ -80,13 +80,34 @@ movimentacoesRouter.post("/sync", assincrono(async (req, res) => {
 // desfazer de outra (então mostra de qual).
 const RESUMO_LIGADO = { select: { id: true, criadoEm: true } };
 
+// Filtros aceitos na listagem. Validados em vez de repassados crus: um
+// `tipo=qualquer-coisa` que chegasse ao Prisma devolveria lista vazia sem
+// explicação, e quem está no histórico procurando uma venda concluiria que a
+// venda sumiu.
+//
+// "motivo" aceita a lista inteira, "estorno" incluído: aqui é leitura, e ver
+// só os estornos é justamente o filtro que interessa a quem confere o que foi
+// desfeito no mês.
+const filtrosSchema = z.object({
+  produtoId: z.string().min(1).max(60).optional(),
+  tipo: z.enum(TIPOS_MOVIMENTACAO).optional(),
+  motivo: z.enum(MOTIVOS_MOVIMENTACAO).optional(),
+  pagina: z.coerce.number().int().positive().default(1),
+});
+
+const POR_PAGINA = 50;
+
 movimentacoesRouter.get("/", exigirPerfil("admin"), assincrono(async (req, res) => {
-  const produtoId = typeof req.query.produtoId === "string" ? req.query.produtoId : undefined;
-  const pagina = Math.max(1, Number(req.query.pagina ?? 1));
-  const porPagina = 50;
+  const parse = filtrosSchema.safeParse(req.query);
+  if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
+
+  const { produtoId, tipo, motivo, pagina } = parse.data;
+  const porPagina = POR_PAGINA;
+
+  const filtro = { produtoId, tipo, motivo };
 
   const movimentacoes = await prisma.movimentacao.findMany({
-    where: produtoId ? { produtoId } : undefined,
+    where: filtro,
     include: {
       produto: true,
       usuario: { select: { id: true, nome: true } },
