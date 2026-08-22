@@ -1,0 +1,14 @@
+# Instalar em /etc/sudoers.d/estoque-deploy com dono root e permissão 440:
+#
+#   sudo install -m 440 -o root -g root \
+#     /opt/estoque/deploy/estoque-deploy.sudoers /etc/sudoers.d/estoque-deploy
+#   sudo visudo -c            # confirma que a sintaxe está válida
+#
+# O deploy roda como "estoque", que é um usuário sem privilégio. A única coisa
+# que ele precisa de root é reiniciar o serviço — e é só isso que está liberado
+# aqui, nominalmente. Um `NOPASSWD: ALL` resolveria a mesma linha do script e
+# transformaria a chave de deploy num acesso root ao servidor.
+#
+# Comando escrito por extenso, sem curinga: `systemctl restart *` deixaria
+# reiniciar (ou parar) qualquer serviço da máquina, o sshd inclusive.
+estoque ALL=(root) NOPASSWD: /usr/bin/systemctl restart estoque-api

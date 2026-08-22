@@ -520,10 +520,94 @@ continuaria mostrando os produtos de teste até a próxima sincronização.
 
 ## 9. Atualizando o sistema depois
 
-O PWA atualiza sozinho: um `git push` na branch principal dispara o build no
-Cloudflare Pages e o app se atualiza no celular na próxima abertura.
+Os dois lados se publicam sozinhos a cada merge na `main`: o PWA pelo
+Cloudflare, a API pelo GitHub Actions. **Isso precisa continuar valendo para
+os dois.** Quando só o PWA se atualizava, sobrava uma janela em que o app novo
+chamava rotas que o servidor ainda não tinha — e uma dessas janelas já deixou
+os donos com uma tela de venda sem nenhum produto.
 
-A API é manual:
+### Deploy automático da API
+
+O job `deploy da API` em [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+roda depois dos testes passarem, só em push na `main`, e conecta por SSH para
+executar [`deploy-api.sh`](deploy-api.sh) no servidor. O script faz, nesta
+ordem: backup do banco → `git reset --hard origin/main` → `npm ci` → build →
+`prisma migrate deploy` → restart → health check. Se a API não responder,
+ele volta o código para o commit anterior, sobe de novo e falha o job.
+
+**Configuração, uma vez só.**
+
+No servidor, crie uma chave exclusiva do deploy (sem senha, porque quem a usa
+é uma máquina):
+
+```bash
+sudo -u estoque ssh-keygen -t ed25519 -N '' -C 'deploy github actions' \
+  -f /home/estoque/.ssh/deploy_actions
+```
+
+Instale o script e a regra de sudo:
+
+```bash
+sudo install -m 755 -o root -g root /opt/estoque/deploy/deploy-api.sh /usr/local/bin/deploy-estoque
+sudo install -m 440 -o root -g root /opt/estoque/deploy/estoque-deploy.sudoers /etc/sudoers.d/estoque-deploy
+sudo visudo -c
+```
+
+Autorize a chave **presa a um único comando** — é o que separa "uma chave que
+publica a API" de "uma chave que dá acesso ao servidor". Com `command=`, o SSH
+ignora o que o cliente pedir e executa só o deploy; os `no-*` desligam túnel,
+encaminhamento e terminal:
+
+```bash
+sudo -u estoque bash -c 'cat >> /home/estoque/.ssh/authorized_keys' <<EOF
+command="/usr/local/bin/deploy-estoque",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding $(sudo cat /home/estoque/.ssh/deploy_actions.pub)
+EOF
+```
+
+Confira do seu computador que a chave só faz isso — o segundo comando tem de
+ser recusado:
+
+```bash
+ssh -i deploy_actions estoque@SEU-IP        # roda o deploy e sai
+ssh -i deploy_actions estoque@SEU-IP whoami # ignora o "whoami" e roda o deploy
+```
+
+No GitHub, em **Settings → Secrets and variables → Actions**, crie:
+
+| Secret | Valor |
+|---|---|
+| `DEPLOY_SSH_KEY` | conteúdo de `deploy_actions` (a chave **privada**, inteira, com as linhas BEGIN/END) |
+| `DEPLOY_KNOWN_HOSTS` | saída de `ssh-keyscan SEU-IP` |
+| `DEPLOY_HOST` | IP público ou domínio do servidor |
+| `DEPLOY_USER` | `estoque` |
+| `DEPLOY_HEALTH_URL` | `https://api.SEU-DOMINIO.com/health` |
+
+`DEPLOY_KNOWN_HOSTS` não é burocracia: sem ele o job aceitaria qualquer
+servidor que atendesse naquele endereço e entregaria a chave privada para ele.
+
+### Quando o rollback não basta
+
+O rollback automático devolve o **código**. Ele não desfaz migration — no
+SQLite não existe `migrate down` confiável, e desfazer schema com dado dentro é
+como se perde dado de verdade. Se o problema foi a migration, o caminho é o
+backup que o próprio script tirou logo antes:
+
+```bash
+sudo systemctl stop estoque-api
+sudo -u estoque cp /caminho/dos/backups/estoque-AAAA-MM-DD-HHMM.db /caminho/do/banco.db
+sudo systemctl start estoque-api
+```
+
+### Atualizando à mão
+
+Continua funcionando, e é o caminho quando o GitHub está fora do ar ou você
+precisa publicar algo que não está na `main`:
+
+```bash
+sudo -u estoque /usr/local/bin/deploy-estoque
+```
+
+Ou passo a passo, se quiser ver cada etapa:
 
 ```bash
 cd /opt/estoque
@@ -535,7 +619,8 @@ sudo -u estoque bash -c 'set -a && . /etc/estoque/api.env && set +a && npx prism
 sudo systemctl restart estoque-api
 ```
 
-Faça um backup antes de qualquer atualização que mexa no banco.
+Faça um backup antes de qualquer atualização que mexa no banco — o script
+automático já faz isso sozinho.
 
 ---
 
@@ -553,6 +638,7 @@ Antes de considerar o sistema entregue:
 - [ ] `TRUST_PROXY=true` no `.env` de produção
 - [ ] Cron de backup instalado e testado à mão pelo menos uma vez
 - [ ] Cópia dos backups saindo da VPS
+- [ ] Chave de deploy presa a `command="/usr/local/bin/deploy-estoque"` — `ssh ... whoami` recusa
 - [ ] Dono trocou a senha provisória, se foi criada com `--gerar-senha`
 - [ ] Funcionário instalou o PWA e conseguiu registrar uma saída de estoque
 
