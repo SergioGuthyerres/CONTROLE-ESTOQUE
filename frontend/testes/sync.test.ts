@@ -11,6 +11,7 @@ let categoriasDoServidor: unknown[] = [];
 let sugestoesDoServidor: string[] = [];
 let enviosFeitos = 0;
 let falharNoEnvioNumero: number | null = null;
+let sugestoesRespondem = true;
 
 vi.mock("../src/lib/api", () => ({
   api: async (caminho: string, opcoes?: RequestInit) => {
@@ -20,7 +21,12 @@ vi.mock("../src/lib/api", () => ({
     });
     if (caminho === "/produtos") return produtosDoServidor;
     if (caminho === "/categorias") return categoriasDoServidor;
-    if (caminho.startsWith("/produtos/mais-movimentados")) return sugestoesDoServidor;
+    if (caminho.startsWith("/produtos/mais-movimentados")) {
+      // A API de produção pode ser mais antiga que o PWA: o app se publica
+      // sozinho a cada merge, o servidor é atualizado à mão.
+      if (!sugestoesRespondem) throw new Error("Rota não encontrada");
+      return sugestoesDoServidor;
+    }
     if (caminho === "/movimentacoes/sync") {
       enviosFeitos += 1;
       if (falharNoEnvioNumero === enviosFeitos) throw new Error("rede caiu");
@@ -69,6 +75,7 @@ beforeEach(async () => {
   sugestoesDoServidor = [];
   enviosFeitos = 0;
   falharNoEnvioNumero = null;
+  sugestoesRespondem = true;
   produtosDoServidor = [produtoApi("prod-1", "Ração 20kg", 10)];
   await db.produtos.clear();
   await db.categorias.clear();
@@ -105,6 +112,42 @@ describe("catálogo", () => {
 
     const nomes = (await db.produtos.orderBy("nome").toArray()).map((p) => p.nome);
     expect(nomes).toEqual(["Milho a granel", "Ração 20kg"]);
+  });
+
+  test("uma rota de atalho que não existe no servidor não derruba o catálogo", async () => {
+    // Regressão do pior tipo: os atalhos vinham no mesmo Promise.all que os
+    // produtos, então um 404 numa conveniência rejeitava a promessa inteira e
+    // deixava o funcionário com uma tela de venda sem nenhum produto. Aconteceu
+    // de verdade, com o PWA novo falando com a API ainda não atualizada.
+    sugestoesRespondem = false;
+
+    await baixarCatalogo();
+
+    expect(await db.produtos.count()).toBe(1);
+    expect(await db.categorias.count()).toBe(1);
+  });
+
+  test("atalhos que falham preservam os da última sincronização que deu certo", async () => {
+    sugestoesDoServidor = ["prod-1"];
+    await baixarCatalogo();
+    expect((await db.sugestoes.get("saida"))?.produtoIds).toEqual(["prod-1"]);
+
+    sugestoesRespondem = false;
+    await baixarCatalogo();
+
+    // Apagar os atalhos porque o servidor não respondeu seria trocar uma tela
+    // com atalho antigo por uma tela sem atalho nenhum.
+    expect((await db.sugestoes.get("saida"))?.produtoIds).toEqual(["prod-1"]);
+  });
+
+  test("um ciclo de sincronização inteiro sobrevive à rota de atalho ausente", async () => {
+    sugestoesRespondem = false;
+    await db.movimentacoes.add(movimentacaoLocal("mov-1", "prod-1", 2));
+
+    await sincronizar();
+
+    expect(await db.movimentacoes.where({ sincronizada: 0 }).count()).toBe(0);
+    expect(await db.produtos.count()).toBe(1);
   });
 
   test("remove do cache local o que sumiu do servidor", async () => {
