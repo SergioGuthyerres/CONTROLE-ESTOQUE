@@ -1,5 +1,7 @@
 # Estoque Casa do Campo
 
+[![CI](https://github.com/SergioGuthyerres/CONTROLE-ESTOQUE/actions/workflows/ci.yml/badge.svg)](https://github.com/SergioGuthyerres/CONTROLE-ESTOQUE/actions/workflows/ci.yml)
+
 Sistema de controle de estoque com painel administrativo para a Casa do
 Campo. Nome provisório — identidade visual ainda em aberto.
 
@@ -61,12 +63,30 @@ O passo a passo completo está em
 publicação do PWA, criação segura do usuário dos donos, backup automático e um
 checklist de segurança para conferir antes de entregar ao cliente.
 
-Testes das regras de segurança (sessão, permissão, força bruta, senha
-provisória):
+## Testes e integração contínua
 
 ```bash
-cd backend && npm test
+cd backend && npm test      # regras de segurança, sem banco e offline
+cd backend && npm run typecheck
+cd frontend && npm run build   # o tsc -b faz o typecheck do PWA
 ```
+
+Os testes do backend (`backend/testes/seguranca.test.ts`) cobrem as regras
+que separam este sistema de um sistema aberto: enumeração de usuário no
+login, RBAC das rotas de admin, invalidação de sessão (`ativo` e
+`tokenVersion`), proteção do último admin, senha provisória que não vira
+permanente, força bruta no login, CORS e o erro de banco que antes deixava a
+requisição pendurada. Cada teste corresponde a uma brecha que existiu de
+verdade neste repositório.
+
+Eles rodam com um Prisma falso em memória (`backend/testes/prismaFalso.ts`),
+então não precisam de banco, de engine nativo nem de internet — o que também
+os torna baratos de rodar no CI.
+
+O [workflow do GitHub Actions](.github/workflows/ci.yml) roda em todo PR e em
+todo push na `main`: testes e typecheck do backend, aplicação das migrations
+num SQLite descartável, e build completo do PWA. O badge no topo mostra o
+estado da `main`.
 
 ## Contribuindo
 
