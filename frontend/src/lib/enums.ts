@@ -2,7 +2,16 @@
 // duplicar essa lista estática é mais simples do que criar um pacote
 // compartilhado. Se algum dia sair do lugar, o backend rejeita na validação
 // (zod), então o pior caso é uma mensagem de erro, não dado inconsistente.
-import type { MotivoMovimentacao, TipoMovimentacao } from "../db/db";
+import type { MotivoMovimentacao, TipoMovimentacao, Unidade } from "../db/db";
+
+// A ordem aqui é a ordem do seletor de unidade no cadastro de produto, e o
+// rótulo explica onde cada uma se aplica — quem cadastra é a dona da loja, não
+// alguém que já sabe o que "un" quer dizer num sistema.
+export const UNIDADES: { valor: Unidade; rotulo: string }[] = [
+  { valor: "kg", rotulo: "kg — peso (inclui fardo e saco)" },
+  { valor: "L", rotulo: "L — volume" },
+  { valor: "un", rotulo: "un — unidade (balde, vassoura, cabo)" },
+];
 
 // Rótulos para exibir uma movimentação que já existe (histórico, relatórios).
 // Inclui "estorno", que NÃO aparece em MOTIVOS_POR_TIPO logo abaixo porque

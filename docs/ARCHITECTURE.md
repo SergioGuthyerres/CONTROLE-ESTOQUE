@@ -63,6 +63,7 @@ variável de ambiente do backend.
 |---|---|
 | Mudar regra de cálculo de estoque | `backend/src/services/stockService.ts` |
 | Adicionar um campo no produto | `backend/prisma/schema.prisma` (rodar `npm run prisma:migrate`) + `backend/src/routes/produtos.ts` + `frontend/src/db/db.ts` + telas de cadastro |
+| Adicionar uma unidade de medida | `backend/src/lib/enums.ts` (`UNIDADES`) + o tipo `Unidade` em `frontend/src/db/db.ts` + o rótulo em `frontend/src/lib/enums.ts`. Não precisa de migration: `unidade` é String no SQLite |
 | Adicionar um novo motivo de movimentação | `backend/src/lib/enums.ts` (`MOTIVOS_MOVIMENTACAO`, `MOTIVOS_POR_TIPO`) + espelhar em `frontend/src/lib/enums.ts` |
 | Mudar o texto/aparência de uma tela | `frontend/src/pages/*.tsx` — estilo vem das classes utilitárias em `frontend/src/index.css` (`.botao-grande`, `.campo`, `.cartao`) |
 | Resumir vendas/compras de um período | `backend/src/services/resumoService.ts` + a regra de classificação em `backend/src/lib/gruposDeMovimentacao.ts` |

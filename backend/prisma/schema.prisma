@@ -51,7 +51,7 @@ model Produto {
   nome          String
   categoriaId   String
   categoria     Categoria      @relation(fields: [categoriaId], references: [id])
-  unidade       String // "kg" | "L" — ver src/lib/enums.ts (fardo/saco vira kg na entrada)
+  unidade       String // "kg" | "L" | "un" — ver src/lib/enums.ts (fardo/saco vira kg; "un" é o que se conta: balde, vassoura)
   estoqueMinimo Decimal        @default(0)
   criadoEm      DateTime       @default(now())
   movimentacoes Movimentacao[]

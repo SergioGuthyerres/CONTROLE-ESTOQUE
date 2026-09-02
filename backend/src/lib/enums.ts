@@ -5,7 +5,11 @@
 export const PERFIS = ["funcionario", "admin"] as const;
 export type Perfil = (typeof PERFIS)[number];
 
-export const UNIDADES = ["kg", "L"] as const;
+// "un" é a unidade do que se conta em vez de pesar ou medir: balde, vassoura,
+// cabo de enxada. Sem ela, esses produtos entravam como "kg" e o estoque
+// passava a dizer "3 kg de vassoura" — número certo, leitura errada, e o
+// alerta de estoque mínimo virava adivinhação para quem confere.
+export const UNIDADES = ["kg", "L", "un"] as const;
 export type Unidade = (typeof UNIDADES)[number];
 
 // Só existem dois tipos — o sinal do estoque é sempre determinado por "tipo",

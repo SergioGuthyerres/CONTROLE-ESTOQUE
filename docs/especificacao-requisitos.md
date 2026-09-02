@@ -7,7 +7,7 @@
 ## 1. Requisitos Funcionais (RF)
 
 ### Cadastros
-- **RF01** — Cadastrar, editar e listar Produto (nome, categoria, unidade — kg/L, estoque mínimo)
+- **RF01** — Cadastrar, editar e listar Produto (nome, categoria, unidade — kg/L/un, estoque mínimo)
 - **RF02** — Cadastrar, editar e listar Categoria
 
 ### Movimentação de estoque
@@ -61,7 +61,7 @@ erDiagram
         uuid id PK
         string nome
         uuid categoria_id FK
-        string unidade "kg | L"
+        string unidade "kg | L | un"
         decimal estoque_minimo
     }
     MOVIMENTACAO {
