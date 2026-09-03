@@ -25,6 +25,7 @@
 - **RF11** — Relatório de produtos mais/menos movimentados (por período)
 - **RF12** — Relatório de valor total em estoque
 - **RF19** — Separar no relatório do dia quanto saiu à vista e quanto saiu fiado, e filtrar o histórico por forma de pagamento
+- **RF20** — Listar quem levou fiado e ainda não pagou, com o total por pessoa, e permitir "dar baixa" numa dívida ou em todas as de um devedor. Disponível para **Funcionário e Admin** (cobrar fiado é trabalho de balcão). A baixa é registrada com data, nome de quem deu baixa e nome do devedor, e não pode ser desfeita nem repetida
 - **RF13** — Histórico/auditoria de movimentações (quem, o quê, quando — somente leitura, nunca editável)
 - **RF17** — Desfazer uma movimentação a partir do histórico (só Admin). Desfazer **não apaga nem edita** o registro original: cria uma movimentação inversa com motivo `estorno`, ligada à original por `estorno_de_id`. Uma movimentação só pode ser desfeita uma vez, e um estorno não pode ser desfeito
 
@@ -80,10 +81,19 @@ erDiagram
         string forma_pagamento "a_vista | fiado — só em venda (RF18)"
         string cliente "quem levou; obrigatório quando forma_pagamento = fiado"
     }
+    PAGAMENTO_FIADO {
+        uuid id PK
+        uuid movimentacao_id FK "único — uma dívida só se paga uma vez (RF20)"
+        uuid usuario_id FK "quem deu baixa, não quem vendeu"
+        string cliente "cópia do nome no dia da baixa — é um recibo"
+        datetime criado_em
+    }
 
     CATEGORIA ||--o{ PRODUTO : classifica
     PRODUTO ||--o{ MOVIMENTACAO : possui
     USUARIO ||--o{ MOVIMENTACAO : registra
+    MOVIMENTACAO ||--o| PAGAMENTO_FIADO : "quitada por"
+    USUARIO ||--o{ PAGAMENTO_FIADO : "dá baixa"
 ```
 
 ### Regras de negócio explícitas
@@ -112,7 +122,13 @@ erDiagram
    fiado sem nome é dívida que ninguém consegue cobrar. Movimentação vinda de
    um aparelho com versão antiga do app, sem esses campos, continua sendo
    aceita e assume `a_vista`.
-6. A checagem do RF07 consulta o estoque **calculado no servidor** (não o
+6. **Dar baixa num fiado não altera a venda** — cria uma linha em
+   `PAGAMENTO_FIADO`. É a mesma regra do estorno, pelo mesmo motivo: um campo
+   `pago` sobrescrito não guardaria quem recebeu nem quando, que é exatamente
+   o que a loja precisa no dia em que o freguês diz que já pagou. Uma venda
+   fiado deixa de ser dívida quando existe um pagamento **ou** quando ela foi
+   estornada — venda desfeita não se cobra.
+7. A checagem do RF07 consulta o estoque **calculado no servidor** (não o
    local do dispositivo) antes de liberar uma saída grande — é a única
    operação que depende de estar online.
 

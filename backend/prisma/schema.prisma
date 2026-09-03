@@ -36,8 +36,9 @@ model Usuario {
   tokenVersion       Int     @default(0)
   precisaTrocarSenha Boolean @default(false)
 
-  criadoEm      DateTime       @default(now())
-  movimentacoes Movimentacao[]
+  criadoEm        DateTime         @default(now())
+  movimentacoes   Movimentacao[]
+  pagamentosFiado PagamentoFiado[]
 }
 
 model Categoria {
@@ -101,12 +102,37 @@ model Movimentacao {
   formaPagamento String?
   cliente        String?
 
+  // Presente = esta venda fiado já foi paga. Ausente = ainda é dívida.
+  pagamentoFiado PagamentoFiado?
+
   @@index([produtoId])
   @@index([criadoEm])
-  // Consulta mais comum do histórico depois dos filtros: as movimentações de
-  // um tipo, das mais recentes para as mais antigas.
   @@index([tipo, criadoEm])
-  // "Quem levou fiado, da mais recente para a mais antiga" — a consulta da
-  // lista de devedores e do filtro por forma de pagamento.
   @@index([formaPagamento, criadoEm])
+}
+
+// "Dar baixa" num fiado. Tabela separada, e não um campo `pago` na
+// Movimentacao, pelo mesmo motivo do estorno: Movimentacao é append-only
+// (regra 2 da arquitetura). Marcar pago com UPDATE apagaria a única resposta
+// que a loja precisa quando alguém contesta a cobrança — QUEM deu baixa e
+// QUANDO. Aqui essa resposta é uma linha nova, que ninguém sobrescreve.
+model PagamentoFiado {
+  id             String       @id @default(uuid())
+  movimentacaoId String       @unique
+  movimentacao   Movimentacao @relation(fields: [movimentacaoId], references: [id])
+
+  // Quem deu baixa — não é quem lançou a venda, e é justamente por isso que
+  // este campo existe separado do usuarioId da movimentação.
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  // Cópia do nome do devedor no momento da baixa. Redundante com
+  // Movimentacao.cliente de propósito: é um recibo, e recibo guarda o que
+  // estava escrito no dia, não o que o campo diz hoje.
+  cliente String
+
+  criadoEm DateTime @default(now())
+
+  @@index([criadoEm])
+  @@index([cliente])
 }

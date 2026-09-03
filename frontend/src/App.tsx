@@ -8,6 +8,7 @@ import { Home } from "./pages/Home";
 import { TelaMovimentacao } from "./pages/TelaMovimentacao";
 import { CadastroProduto } from "./pages/CadastroProduto";
 import { CadastroCategoria } from "./pages/CadastroCategoria";
+import { Devedores } from "./pages/Devedores";
 import { Dashboard } from "./pages/admin/Dashboard";
 import { Relatorios } from "./pages/admin/Relatorios";
 import { ResumoDoDia } from "./pages/admin/ResumoDoDia";
@@ -40,6 +41,9 @@ export function App() {
               />
               <Route path="/produtos" element={<CadastroProduto />} />
               <Route path="/categorias" element={<CadastroCategoria />} />
+              {/* Fora do bloco de admin de propósito: cobrar fiado é
+                  trabalho de balcão, e quem atende é o funcionário. */}
+              <Route path="/fiado" element={<Devedores />} />
 
               <Route element={<RotaProtegida somentePerfis={["admin"]} />}>
                 <Route path="/admin/dashboard" element={<Dashboard />} />
