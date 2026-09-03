@@ -27,7 +27,7 @@
 - **RF19** — Separar no relatório do dia quanto saiu à vista e quanto saiu fiado, e filtrar o histórico por forma de pagamento
 - **RF20** — Listar quem levou fiado e ainda não pagou, com o total por pessoa, e permitir "dar baixa" numa dívida ou em todas as de um devedor. Disponível para **Funcionário e Admin** (cobrar fiado é trabalho de balcão). A baixa é registrada com data, nome de quem deu baixa e nome do devedor, e não pode ser desfeita nem repetida
 - **RF13** — Histórico/auditoria de movimentações (quem, o quê, quando — somente leitura, nunca editável)
-- **RF17** — Desfazer uma movimentação a partir do histórico (só Admin). Desfazer **não apaga nem edita** o registro original: cria uma movimentação inversa com motivo `estorno`, ligada à original por `estorno_de_id`. Uma movimentação só pode ser desfeita uma vez, e um estorno não pode ser desfeito
+- **RF17** — Desfazer uma movimentação a partir do histórico (só Admin). Desfazer **não apaga nem edita** o registro original: cria uma movimentação inversa com motivo `estorno`, ligada à original por `estorno_de_id`. Uma movimentação só pode ser desfeita uma vez, e um estorno não pode ser desfeito. Uma venda fiado **já baixada** também não pode ser desfeita: apagaria a venda e deixaria o pagamento sem origem
 
 ### Acesso
 - **RF14** — Login individual por usuário, com dois perfis: Funcionário e Admin

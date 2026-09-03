@@ -136,7 +136,10 @@ movimentacoesRouter.post(
   assincrono(async (req, res) => {
     const original = await prisma.movimentacao.findUnique({
       where: { id: req.params.id },
-      include: { estorno: { select: { id: true } } },
+      include: {
+        estorno: { select: { id: true } },
+        pagamentoFiado: { select: { id: true } },
+      },
     });
 
     if (!original) return res.status(404).json({ erro: "Movimentação não encontrada" });
