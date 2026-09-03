@@ -89,9 +89,24 @@ model Movimentacao {
   estornoDe   Movimentacao? @relation("Estorno", fields: [estornoDeId], references: [id])
   estorno     Movimentacao? @relation("Estorno")
 
+  // Só fazem sentido numa venda (tipo "saida", motivo "venda"); em qualquer
+  // outra movimentação ficam nulos, e a rota recusa se vierem preenchidos.
+  //
+  // formaPagamento: "a_vista" | "fiado" — ver src/lib/enums.ts. Nulo só nas
+  // vendas anteriores a esta funcionalidade; a rota preenche "a_vista" no que
+  // entra daqui para frente, porque antes disso não existia outra forma.
+  // cliente: nome de quem levou fiado, digitado no balcão. Texto livre de
+  //   propósito — obrigar cadastro de cliente antes da venda seria atrito na
+  //   hora errada (RNF05), e quem cobra a dívida é gente que conhece o nome.
+  formaPagamento String?
+  cliente        String?
+
   @@index([produtoId])
   @@index([criadoEm])
   // Consulta mais comum do histórico depois dos filtros: as movimentações de
   // um tipo, das mais recentes para as mais antigas.
   @@index([tipo, criadoEm])
+  // "Quem levou fiado, da mais recente para a mais antiga" — a consulta da
+  // lista de devedores e do filtro por forma de pagamento.
+  @@index([formaPagamento, criadoEm])
 }

@@ -15,11 +15,14 @@ interface LinhaDoResumo {
   quantidade: number;
   valor: number;
   movimentacoes: number;
+  valorFiado: number;
 }
 
 interface GrupoResumido {
   movimentacoes: number;
   valorTotal: number;
+  valorAVista: number;
+  valorFiado: number;
   linhas: LinhaDoResumo[];
 }
 
@@ -114,6 +117,22 @@ export function ResumoDoDia() {
               <div className="text-2xl font-semibold text-red-700">
                 {reais(resumo.vendas.valorTotal)}
               </div>
+              {/* A separação é o ponto: o total sozinho soma dinheiro que
+                  ainda não entrou na gaveta, e é com ele que alguém compara o
+                  que contou à mão no fim do dia. */}
+              <div className="text-xs text-gray-600 mt-1">
+                <span className="text-green-700">
+                  {reais(resumo.vendas.valorAVista)} à vista
+                </span>
+                {resumo.vendas.valorFiado > 0 && (
+                  <>
+                    {" · "}
+                    <span className="text-amber-700">
+                      {reais(resumo.vendas.valorFiado)} fiado
+                    </span>
+                  </>
+                )}
+              </div>
               <div className="text-xs text-gray-500">
                 {resumo.vendas.movimentacoes} movimentação
                 {resumo.vendas.movimentacoes === 1 ? "" : "s"}
@@ -181,6 +200,9 @@ function Grupo(props: {
             <span className="text-gray-500 whitespace-nowrap">
               {linha.quantidade} {linha.unidade}
               {linha.valor > 0 && ` · ${reais(linha.valor)}`}
+              {linha.valorFiado > 0 && (
+                <span className="text-amber-700"> ({reais(linha.valorFiado)} fiado)</span>
+              )}
             </span>
           </li>
         ))}
