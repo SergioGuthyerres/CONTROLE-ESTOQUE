@@ -4,7 +4,7 @@ import { db, type Unidade } from "../db/db";
 import { api, ErroApi } from "../lib/api";
 import { baixarCatalogo } from "../lib/sync";
 import { Link } from "react-router-dom";
-const UNIDADES: Unidade[] = ["kg", "L"];
+import { UNIDADES } from "../lib/enums";
 
 // Também exige internet (mesma lógica de CadastroCategoria.tsx).
 export function CadastroProduto() {
@@ -105,8 +105,8 @@ export function CadastroProduto() {
             onChange={(e) => setUnidade(e.target.value as Unidade)}
           >
             {UNIDADES.map((u) => (
-              <option key={u} value={u}>
-                {u === "kg" ? "kg (inclui fardo/saco)" : "L"}
+              <option key={u.valor} value={u.valor}>
+                {u.rotulo}
               </option>
             ))}
           </select>

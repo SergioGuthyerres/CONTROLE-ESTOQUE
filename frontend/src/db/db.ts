@@ -4,7 +4,9 @@ import Dexie, { type Table } from "dexie";
 // funcionar 100% offline. Ver docs/documento-de-visao.md, seção 5.4, sobre
 // por que é IndexedDB e não SQLite nativo (decisão de ser PWA).
 
-export type Unidade = "kg" | "L";
+// Espelha UNIDADES em backend/src/lib/enums.ts. "un" é o que se conta em vez
+// de pesar ou medir — balde, vassoura, cabo de enxada.
+export type Unidade = "kg" | "L" | "un";
 
 export interface ProdutoLocal {
   id: string;
