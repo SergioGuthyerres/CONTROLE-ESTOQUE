@@ -27,6 +27,10 @@ export interface CategoriaLocal {
 }
 
 export type TipoMovimentacao = "entrada" | "saida";
+
+// Como a venda foi paga. Só existe em venda (tipo "saida", motivo "venda") —
+// espelha FORMAS_PAGAMENTO em backend/src/lib/enums.ts.
+export type FormaPagamento = "a_vista" | "fiado";
 export type MotivoMovimentacao =
   | "compra"
   | "devolucao"
@@ -49,6 +53,11 @@ export interface MovimentacaoLocal {
   origemDispositivo: string;
   criadoEm: string; // ISO 8601
   sincronizada: 0 | 1; // Dexie não indexa booleano bem — usar 0/1
+
+  // Só em venda. Ausentes nas movimentações gravadas antes desta versão do
+  // app — a fila local pode ter lançamentos de antes esperando internet.
+  formaPagamento?: FormaPagamento;
+  cliente?: string; // quem levou fiado
 }
 
 // Atalhos de produto da tela de venda/compra, baixados junto com o catálogo.
@@ -79,6 +88,11 @@ class BancoLocal extends Dexie {
     });
     this.version(2).stores({
       sugestoes: "tipo",
+    });
+    // O índice de formaPagamento é o que faz a lista de nomes já usados sair
+    // rápido na tela de venda, sem varrer a fila inteira a cada tecla.
+    this.version(3).stores({
+      movimentacoes: "id, produtoId, sincronizada, criadoEm, formaPagamento",
     });
   }
 }

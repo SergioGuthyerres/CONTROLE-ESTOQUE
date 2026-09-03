@@ -24,6 +24,12 @@ export function Home() {
           Registrar compra
         </Link>
         <Link
+          to="/fiado"
+          className="botao-medio block text-center bg-amber-700"
+        >
+          Fiado
+        </Link>
+        <Link
           to="/produtos"
           className="botao-medio block text-center bg-orange-700"
         >

@@ -13,6 +13,7 @@
 ### Movimentação de estoque
 - **RF03** — Registrar entrada de estoque (produto, quantidade, valor, tipo: compra/devolução)
 - **RF04** — Registrar saída de estoque (produto, quantidade, valor, tipo: venda/perda/uso interno)
+- **RF18** — Registrar a forma de pagamento da venda (`a_vista` ou `fiado`) e, quando for fiado, o nome de quem levou. Compra, perda, uso interno e ajuste não têm forma de pagamento
 - **RF05** — Registrar ajuste manual de estoque (inventário/contagem): contagem física a mais vira `entrada`, a menos vira `saida`, ambas com motivo `inventario` — não é um terceiro tipo de movimentação (ver Modelo de Dados)
 - **RF06** — Identificar o produto na movimentação por busca textual (nome/descrição) — campo único, sem distinção de atalhos (decisão da seção 5.1 da visão)
 - **RF07** — Bloquear confirmação de saída com quantidade > 20 unidades iguais quando o dispositivo estiver offline; exigir conexão e checagem do estoque no servidor antes de liberar (seção 5.2 da visão)
@@ -23,8 +24,10 @@
 - **RF10** — Alerta de estoque negativo (produto com saldo calculado < 0)
 - **RF11** — Relatório de produtos mais/menos movimentados (por período)
 - **RF12** — Relatório de valor total em estoque
+- **RF19** — Separar no relatório do dia quanto saiu à vista e quanto saiu fiado, e filtrar o histórico por forma de pagamento
+- **RF20** — Listar quem levou fiado e ainda não pagou, com o total por pessoa, e permitir "dar baixa" numa dívida ou em todas as de um devedor. Disponível para **Funcionário e Admin** (cobrar fiado é trabalho de balcão). A baixa é registrada com data, nome de quem deu baixa e nome do devedor, e não pode ser desfeita nem repetida
 - **RF13** — Histórico/auditoria de movimentações (quem, o quê, quando — somente leitura, nunca editável)
-- **RF17** — Desfazer uma movimentação a partir do histórico (só Admin). Desfazer **não apaga nem edita** o registro original: cria uma movimentação inversa com motivo `estorno`, ligada à original por `estorno_de_id`. Uma movimentação só pode ser desfeita uma vez, e um estorno não pode ser desfeito
+- **RF17** — Desfazer uma movimentação a partir do histórico (só Admin). Desfazer **não apaga nem edita** o registro original: cria uma movimentação inversa com motivo `estorno`, ligada à original por `estorno_de_id`. Uma movimentação só pode ser desfeita uma vez, e um estorno não pode ser desfeito. Uma venda fiado **já baixada** também não pode ser desfeita: apagaria a venda e deixaria o pagamento sem origem
 
 ### Acesso
 - **RF14** — Login individual por usuário, com dois perfis: Funcionário e Admin
@@ -75,11 +78,22 @@ erDiagram
         datetime criado_em
         string origem_dispositivo "id do dispositivo que gerou o registro"
         uuid estorno_de_id FK "único e opcional — a movimentação que esta desfaz (RF17)"
+        string forma_pagamento "a_vista | fiado — só em venda (RF18)"
+        string cliente "quem levou; obrigatório quando forma_pagamento = fiado"
+    }
+    PAGAMENTO_FIADO {
+        uuid id PK
+        uuid movimentacao_id FK "único — uma dívida só se paga uma vez (RF20)"
+        uuid usuario_id FK "quem deu baixa, não quem vendeu"
+        string cliente "cópia do nome no dia da baixa — é um recibo"
+        datetime criado_em
     }
 
     CATEGORIA ||--o{ PRODUTO : classifica
     PRODUTO ||--o{ MOVIMENTACAO : possui
     USUARIO ||--o{ MOVIMENTACAO : registra
+    MOVIMENTACAO ||--o| PAGAMENTO_FIADO : "quitada por"
+    USUARIO ||--o{ PAGAMENTO_FIADO : "dá baixa"
 ```
 
 ### Regras de negócio explícitas
@@ -98,7 +112,23 @@ erDiagram
    histórico, que é o que uma auditoria precisa ver.
 3. `origem_dispositivo` existe para rastrear de qual aparelho veio cada
    registro, útil para investigar estoque negativo (RF10).
-4. A checagem do RF07 consulta o estoque **calculado no servidor** (não o
+4. **Fiado é venda, não é promessa de venda.** Uma venda fiado dá baixa no
+   estoque no ato, igual à venda à vista — a mercadoria saiu da prateleira
+   independentemente de o dinheiro ter entrado. O que muda é só o dinheiro, e
+   por isso o resumo do dia mostra os dois totais separados: o total sozinho
+   soma valor que ainda não está na gaveta.
+5. `forma_pagamento` e `cliente` só existem em venda (`tipo: saida`,
+   `motivo: venda`), e `cliente` é obrigatório quando a forma é `fiado` —
+   fiado sem nome é dívida que ninguém consegue cobrar. Movimentação vinda de
+   um aparelho com versão antiga do app, sem esses campos, continua sendo
+   aceita e assume `a_vista`.
+6. **Dar baixa num fiado não altera a venda** — cria uma linha em
+   `PAGAMENTO_FIADO`. É a mesma regra do estorno, pelo mesmo motivo: um campo
+   `pago` sobrescrito não guardaria quem recebeu nem quando, que é exatamente
+   o que a loja precisa no dia em que o freguês diz que já pagou. Uma venda
+   fiado deixa de ser dívida quando existe um pagamento **ou** quando ela foi
+   estornada — venda desfeita não se cobra.
+7. A checagem do RF07 consulta o estoque **calculado no servidor** (não o
    local do dispositivo) antes de liberar uma saída grande — é a única
    operação que depende de estar online.
 

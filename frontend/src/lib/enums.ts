@@ -2,7 +2,12 @@
 // duplicar essa lista estática é mais simples do que criar um pacote
 // compartilhado. Se algum dia sair do lugar, o backend rejeita na validação
 // (zod), então o pior caso é uma mensagem de erro, não dado inconsistente.
-import type { MotivoMovimentacao, TipoMovimentacao, Unidade } from "../db/db";
+import type {
+  FormaPagamento,
+  MotivoMovimentacao,
+  TipoMovimentacao,
+  Unidade,
+} from "../db/db";
 
 // A ordem aqui é a ordem do seletor de unidade no cadastro de produto, e o
 // rótulo explica onde cada uma se aplica — quem cadastra é a dona da loja, não
@@ -25,6 +30,18 @@ export const ROTULO_MOTIVO: Record<MotivoMovimentacao, string> = {
   uso_interno: "Uso interno",
   inventario: "Ajuste de inventário",
   estorno: "Estorno",
+};
+
+// "Fiado" é o vocabulário da loja, não jargão de sistema — é a palavra que a
+// dona usa no caderno e a que o funcionário procura na tela.
+export const FORMAS_PAGAMENTO: { valor: FormaPagamento; rotulo: string }[] = [
+  { valor: "a_vista", rotulo: "À vista" },
+  { valor: "fiado", rotulo: "Fiado" },
+];
+
+export const ROTULO_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
+  a_vista: "À vista",
+  fiado: "Fiado",
 };
 
 export const ROTULO_TIPO: Record<TipoMovimentacao, string> = {

@@ -22,6 +22,10 @@ Este arquivo é o atalho. Para o "porquê" completo de cada decisão, ver
    inventário (contagem física) é `entrada` (achou a mais) ou `saida` (achou
    a menos) com `motivo: "inventario"` — ver `backend/src/lib/enums.ts`.
 
+4. **Fiado dá baixa no estoque igual à venda à vista.** `formaPagamento` só
+   diz onde o dinheiro está, não se a mercadoria saiu — ela saiu. Por isso
+   nenhuma consulta de estoque olha para esse campo; só os relatórios olham.
+
 ## Como as peças se conectam
 
 ```
@@ -64,6 +68,9 @@ variável de ambiente do backend.
 | Mudar regra de cálculo de estoque | `backend/src/services/stockService.ts` |
 | Adicionar um campo no produto | `backend/prisma/schema.prisma` (rodar `npm run prisma:migrate`) + `backend/src/routes/produtos.ts` + `frontend/src/db/db.ts` + telas de cadastro |
 | Adicionar uma unidade de medida | `backend/src/lib/enums.ts` (`UNIDADES`) + o tipo `Unidade` em `frontend/src/db/db.ts` + o rótulo em `frontend/src/lib/enums.ts`. Não precisa de migration: `unidade` é String no SQLite |
+| Mexer nas regras de entrada de uma movimentação (o que é obrigatório, o que é proibido) | `backend/src/lib/movimentacaoSchema.ts` — é puro (só zod + enums), então `backend/testes/vendaFiado.test.ts` exercita as regras sem banco nem servidor. Toda regra nova precisa aceitar movimentação de app antigo, sem o campo |
+| Mudar a lista de devedores ou a baixa de fiado | `backend/src/lib/fiado.ts` (regra de "quem ainda deve", pura e testada) + `backend/src/routes/fiado.ts` + `frontend/src/pages/Devedores.tsx`. A baixa é um INSERT em `PagamentoFiado`, nunca um UPDATE na venda |
+| Mudar algo em venda fiado | `backend/src/lib/enums.ts` (`FORMAS_PAGAMENTO`, `ehVenda`) + `backend/src/lib/movimentacaoSchema.ts` + `backend/src/services/resumoService.ts` (separação à vista/fiado) + `frontend/src/lib/clientes.ts` (sugestão de nome) |
 | Adicionar um novo motivo de movimentação | `backend/src/lib/enums.ts` (`MOTIVOS_MOVIMENTACAO`, `MOTIVOS_POR_TIPO`) + espelhar em `frontend/src/lib/enums.ts` |
 | Mudar o texto/aparência de uma tela | `frontend/src/pages/*.tsx` — estilo vem das classes utilitárias em `frontend/src/index.css` (`.botao-grande`, `.campo`, `.cartao`) |
 | Resumir vendas/compras de um período | `backend/src/services/resumoService.ts` + a regra de classificação em `backend/src/lib/gruposDeMovimentacao.ts` |

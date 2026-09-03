@@ -129,6 +129,11 @@ export async function enviarMovimentacoesPendentes(): Promise<{ enviadas: number
           valor: m.valor,
           origemDispositivo: m.origemDispositivo,
           criadoEm: m.criadoEm,
+          // Só vão quando existem: o servidor recusa forma de pagamento em
+          // movimentação que não é venda, e a fila pode ter lançamentos
+          // gravados antes desta versão do app.
+          ...(m.formaPagamento ? { formaPagamento: m.formaPagamento } : {}),
+          ...(m.cliente ? { cliente: m.cliente } : {}),
         })),
       }),
     });

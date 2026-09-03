@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma";
-import type { MotivoMovimentacao, TipoMovimentacao } from "../lib/enums";
+import type { FormaPagamento, MotivoMovimentacao, TipoMovimentacao } from "../lib/enums";
 import { grupoDoMotivo, type GrupoDoResumo } from "../lib/gruposDeMovimentacao";
 
 // Reexportado por conveniência de quem já importa o resumo inteiro.
@@ -23,18 +23,37 @@ export interface LinhaDoResumo {
   quantidade: number;
   valor: number;
   movimentacoes: number;
+  /** Parte do `valor` acima que saiu fiado. Zero fora das vendas. */
+  valorFiado: number;
 }
 
 export interface GrupoResumido {
   movimentacoes: number;
   valorTotal: number;
+  /**
+   * `valorTotal` separado por forma de pagamento. Fora das vendas, tudo cai em
+   * `valorAVista` — compra e perda não têm forma de pagamento.
+   *
+   * A separação é o ponto da funcionalidade: o total de vendas do dia somava
+   * dinheiro que ainda não tinha entrado na gaveta, e quem fecha o caixa
+   * comparava esse número com o dinheiro contado à mão.
+   */
+  valorAVista: number;
+  valorFiado: number;
   linhas: LinhaDoResumo[];
 }
 
 export type ResumoDoPeriodo = Record<GrupoDoResumo, GrupoResumido>;
 
 function grupoVazio(): GrupoResumido {
-  return { movimentacoes: 0, valorTotal: 0, linhas: [] };
+  return { movimentacoes: 0, valorTotal: 0, valorAVista: 0, valorFiado: 0, linhas: [] };
+}
+
+// Nulo em formaPagamento é venda anterior à funcionalidade (ou movimentação
+// que não é venda). Contar como "à vista" é o que corresponde à realidade:
+// antes disso, fiado não era registrado em lugar nenhum.
+function ehFiado(formaPagamento: string | null): boolean {
+  return formaPagamento === ("fiado" satisfies FormaPagamento);
 }
 
 export async function resumirPeriodo(
@@ -45,7 +64,7 @@ export async function resumirPeriodo(
   // centenas de linhas hoje, mas a tabela é append-only e só cresce — trazer
   // tudo para somar aqui seria uma conta que piora todo mês.
   const agrupado = await prisma.movimentacao.groupBy({
-    by: ["produtoId", "tipo", "motivo"],
+    by: ["produtoId", "tipo", "motivo", "formaPagamento"],
     where: { criadoEm: { gte: dataInicio, lte: dataFim } },
     _sum: { quantidade: true, valor: true },
     _count: { _all: true },
@@ -68,6 +87,12 @@ export async function resumirPeriodo(
     outras: grupoVazio(),
   };
 
+  // O banco agora agrupa também por forma de pagamento, então o mesmo produto
+  // pode voltar em duas linhas (parte à vista, parte fiado). Na tela isso seria
+  // ruído: quem confere quer uma linha por produto, com a fatia fiado ao lado.
+  // Por isso o merge por produto+tipo+motivo aqui.
+  const linhaPorChave = new Map<string, LinhaDoResumo>();
+
   for (const linha of agrupado) {
     const tipo = linha.tipo as TipoMovimentacao;
     const motivo = linha.motivo as MotivoMovimentacao;
@@ -76,19 +101,35 @@ export async function resumirPeriodo(
 
     const quantidade = Number(linha._sum.quantidade ?? 0);
     const valor = Number(linha._sum.valor ?? 0);
+    const fiado = ehFiado(linha.formaPagamento);
 
-    grupo.linhas.push({
-      produtoId: linha.produtoId,
-      produtoNome: produto?.nome ?? "(produto removido)",
-      unidade: produto?.unidade ?? "",
-      tipo,
-      motivo,
-      quantidade,
-      valor,
-      movimentacoes: linha._count._all,
-    });
+    const chave = `${linha.produtoId}|${tipo}|${motivo}`;
+    let acumulada = linhaPorChave.get(chave);
+    if (!acumulada) {
+      acumulada = {
+        produtoId: linha.produtoId,
+        produtoNome: produto?.nome ?? "(produto removido)",
+        unidade: produto?.unidade ?? "",
+        tipo,
+        motivo,
+        quantidade: 0,
+        valor: 0,
+        movimentacoes: 0,
+        valorFiado: 0,
+      };
+      linhaPorChave.set(chave, acumulada);
+      grupo.linhas.push(acumulada);
+    }
+
+    acumulada.quantidade += quantidade;
+    acumulada.valor += valor;
+    acumulada.movimentacoes += linha._count._all;
+    if (fiado) acumulada.valorFiado += valor;
+
     grupo.movimentacoes += linha._count._all;
     grupo.valorTotal += valor;
+    if (fiado) grupo.valorFiado += valor;
+    else grupo.valorAVista += valor;
   }
 
   // Maior valor primeiro: quem confere o caixa quer ver a linha grande antes

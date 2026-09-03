@@ -7,6 +7,7 @@ export function AdminNav() {
       <Link to="/admin/resumo-do-dia" className="underline">Dia</Link>
       <Link to="/admin/relatorios" className="underline">Relatórios</Link>
       <Link to="/admin/historico" className="underline">Histórico</Link>
+      <Link to="/fiado" className="underline">Fiado</Link>
       <Link to="/admin/usuarios" className="underline">Usuários</Link>
     </nav>
   );

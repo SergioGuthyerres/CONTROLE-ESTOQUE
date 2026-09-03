@@ -14,6 +14,7 @@ import { alertasRouter } from "./routes/alertas";
 import { relatoriosRouter } from "./routes/relatorios";
 import { dashboardRouter } from "./routes/dashboard";
 import { configRouter } from "./routes/config";
+import { fiadoRouter } from "./routes/fiado";
 
 // Montado numa função para que os testes possam levantar o app numa porta
 // efêmera sem depender do processo de produção — ver testes/seguranca.test.ts.
@@ -93,6 +94,7 @@ export function criarApp() {
   app.use("/alertas", alertasRouter);
   app.use("/relatorios", relatoriosRouter);
   app.use("/dashboard", dashboardRouter);
+  app.use("/fiado", fiadoRouter);
   app.use("/config", configRouter);
 
   app.use(rotaNaoEncontrada);

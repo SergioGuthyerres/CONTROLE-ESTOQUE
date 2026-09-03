@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useLiveQuery } from "dexie-react-hooks";
 import {
   db,
+  type FormaPagamento,
   type MotivoMovimentacao,
   type ProdutoLocal,
   type TipoMovimentacao,
 } from "../db/db";
 import { BuscaProduto } from "../components/BuscaProduto";
-import { MOTIVOS_POR_TIPO } from "../lib/enums";
+import { FORMAS_PAGAMENTO, MOTIVOS_POR_TIPO } from "../lib/enums";
+import { clientesJaUsados } from "../lib/clientes";
 import { idDoDispositivo } from "../lib/device";
 import { limiteQuantidadeOnlineCache } from "../lib/config";
 import { api } from "../lib/api";
@@ -27,11 +30,19 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   );
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("a_vista");
+  const [cliente, setCliente] = useState("");
   const [avisoEstoqueServidor, setAvisoEstoqueServidor] = useState<
     string | null
   >(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+
+  // Forma de pagamento só existe em venda: compra, perda e ajuste não têm.
+  const ehVenda = tipo === "saida" && motivo === "venda";
+  const fiado = ehVenda && formaPagamento === "fiado";
+
+  const clientes = useLiveQuery(clientesJaUsados, [], [] as string[]);
 
   const limite = limiteQuantidadeOnlineCache();
   const quantidadeNumero = Number(quantidade.replace(",", "."));
@@ -46,6 +57,14 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   async function confirmar() {
     if (!produto || !quantidadeNumero || quantidadeNumero <= 0) {
       setErro("Escolha um produto e informe uma quantidade válida.");
+      return;
+    }
+
+    // Barrado aqui e também no servidor. A checagem daqui existe para a pessoa
+    // ver o que falta na hora, em vez de a venda entrar na fila e só ser
+    // recusada na sincronização — quando ninguém mais lembra do que foi.
+    if (fiado && cliente.trim().length < 2) {
+      setErro("Venda fiado precisa do nome de quem levou.");
       return;
     }
 
@@ -81,6 +100,8 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
         origemDispositivo: idDoDispositivo(),
         criadoEm: new Date().toISOString(),
         sincronizada: 0,
+        ...(ehVenda ? { formaPagamento } : {}),
+        ...(fiado ? { cliente: cliente.trim() } : {}),
       });
 
       sincronizarSePossivel(); // dispara em segundo plano, não trava a tela
@@ -116,6 +137,12 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
           onValorChange={setValor}
           quantidadeGrande={quantidadeGrande}
           limite={limite}
+          ehVenda={ehVenda}
+          formaPagamento={formaPagamento}
+          onFormaPagamentoChange={setFormaPagamento}
+          cliente={cliente}
+          onClienteChange={setCliente}
+          clientes={clientes}
         />
       )}
 
@@ -154,6 +181,12 @@ function ProdutoEscolhido(props: {
   onValorChange: (v: string) => void;
   quantidadeGrande: boolean;
   limite: number;
+  ehVenda: boolean;
+  formaPagamento: FormaPagamento;
+  onFormaPagamentoChange: (f: FormaPagamento) => void;
+  cliente: string;
+  onClienteChange: (v: string) => void;
+  clientes: string[];
 }) {
   const [estoqueLocal, setEstoqueLocal] = useState<number | null>(null);
 
@@ -226,6 +259,54 @@ function ProdutoEscolhido(props: {
           onChange={(e) => props.onValorChange(e.target.value)}
         />
       </div>
+
+      {props.ehVenda && (
+        <div>
+          <label className="block text-sm mb-1">Pagamento</label>
+          <div className="flex gap-2">
+            {FORMAS_PAGAMENTO.map((opcao) => (
+              <button
+                key={opcao.valor}
+                type="button"
+                onClick={() => props.onFormaPagamentoChange(opcao.valor)}
+                className={`flex-1 py-3 rounded-lg text-base border ${
+                  props.formaPagamento === opcao.valor
+                    ? "bg-marca text-white border-transparent"
+                    : "bg-white text-gray-700 border-gray-300"
+                }`}
+              >
+                {opcao.rotulo}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {props.ehVenda && props.formaPagamento === "fiado" && (
+        <div>
+          <label className="block text-sm mb-1" htmlFor="cliente">
+            Quem levou
+          </label>
+          {/* datalist e não select: o nome é digitado no balcão, e obrigar
+              cadastro de cliente antes da venda seria atrito na hora errada.
+              A lista sugere quem já levou fiado antes, para o mesmo freguês
+              não virar três nomes diferentes na lista de devedores. */}
+          <input
+            id="cliente"
+            className="campo"
+            list="clientes-conhecidos"
+            autoComplete="off"
+            placeholder="Nome de quem levou"
+            value={props.cliente}
+            onChange={(e) => props.onClienteChange(e.target.value)}
+          />
+          <datalist id="clientes-conhecidos">
+            {props.clientes.map((nome) => (
+              <option key={nome} value={nome} />
+            ))}
+          </datalist>
+        </div>
+      )}
     </div>
   );
 }
