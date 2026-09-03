@@ -36,8 +36,9 @@ model Usuario {
   tokenVersion       Int     @default(0)
   precisaTrocarSenha Boolean @default(false)
 
-  criadoEm      DateTime       @default(now())
-  movimentacoes Movimentacao[]
+  criadoEm        DateTime         @default(now())
+  movimentacoes   Movimentacao[]
+  pagamentosFiado PagamentoFiado[]
 }
 
 model Categoria {
@@ -51,7 +52,7 @@ model Produto {
   nome          String
   categoriaId   String
   categoria     Categoria      @relation(fields: [categoriaId], references: [id])
-  unidade       String // "kg" | "L" — ver src/lib/enums.ts (fardo/saco vira kg na entrada)
+  unidade       String // "kg" | "L" | "un" — ver src/lib/enums.ts (fardo/saco vira kg; "un" é o que se conta: balde, vassoura)
   estoqueMinimo Decimal        @default(0)
   criadoEm      DateTime       @default(now())
   movimentacoes Movimentacao[]
@@ -89,9 +90,49 @@ model Movimentacao {
   estornoDe   Movimentacao? @relation("Estorno", fields: [estornoDeId], references: [id])
   estorno     Movimentacao? @relation("Estorno")
 
+  // Só fazem sentido numa venda (tipo "saida", motivo "venda"); em qualquer
+  // outra movimentação ficam nulos, e a rota recusa se vierem preenchidos.
+  //
+  // formaPagamento: "a_vista" | "fiado" — ver src/lib/enums.ts. Nulo só nas
+  // vendas anteriores a esta funcionalidade; a rota preenche "a_vista" no que
+  // entra daqui para frente, porque antes disso não existia outra forma.
+  // cliente: nome de quem levou fiado, digitado no balcão. Texto livre de
+  //   propósito — obrigar cadastro de cliente antes da venda seria atrito na
+  //   hora errada (RNF05), e quem cobra a dívida é gente que conhece o nome.
+  formaPagamento String?
+  cliente        String?
+
+  // Presente = esta venda fiado já foi paga. Ausente = ainda é dívida.
+  pagamentoFiado PagamentoFiado?
+
   @@index([produtoId])
   @@index([criadoEm])
-  // Consulta mais comum do histórico depois dos filtros: as movimentações de
-  // um tipo, das mais recentes para as mais antigas.
   @@index([tipo, criadoEm])
+  @@index([formaPagamento, criadoEm])
+}
+
+// "Dar baixa" num fiado. Tabela separada, e não um campo `pago` na
+// Movimentacao, pelo mesmo motivo do estorno: Movimentacao é append-only
+// (regra 2 da arquitetura). Marcar pago com UPDATE apagaria a única resposta
+// que a loja precisa quando alguém contesta a cobrança — QUEM deu baixa e
+// QUANDO. Aqui essa resposta é uma linha nova, que ninguém sobrescreve.
+model PagamentoFiado {
+  id             String       @id @default(uuid())
+  movimentacaoId String       @unique
+  movimentacao   Movimentacao @relation(fields: [movimentacaoId], references: [id])
+
+  // Quem deu baixa — não é quem lançou a venda, e é justamente por isso que
+  // este campo existe separado do usuarioId da movimentação.
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  // Cópia do nome do devedor no momento da baixa. Redundante com
+  // Movimentacao.cliente de propósito: é um recibo, e recibo guarda o que
+  // estava escrito no dia, não o que o campo diz hoje.
+  cliente String
+
+  criadoEm DateTime @default(now())
+
+  @@index([criadoEm])
+  @@index([cliente])
 }

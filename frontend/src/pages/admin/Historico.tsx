@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ErroApi } from "../../lib/api";
 import { AdminNav } from "../../components/AdminNav";
 import { Link } from "react-router-dom";
-import { MOTIVOS_POR_TIPO, ROTULO_MOTIVO, ROTULO_TIPO } from "../../lib/enums";
+import {
+  FORMAS_PAGAMENTO,
+  MOTIVOS_POR_TIPO,
+  ROTULO_MOTIVO,
+  ROTULO_TIPO,
+} from "../../lib/enums";
 import { baixarCatalogo } from "../../lib/sync";
 import {
   PERIODO_VAZIO,
@@ -11,7 +16,7 @@ import {
   periodoInvertido,
   type Periodo,
 } from "../../components/SeletorDePeriodo";
-import type { MotivoMovimentacao, TipoMovimentacao } from "../../db/db";
+import type { FormaPagamento, MotivoMovimentacao, TipoMovimentacao } from "../../db/db";
 
 interface LigacaoEstorno {
   id: string;
@@ -28,6 +33,8 @@ interface MovimentacaoApi {
   origemDispositivo: string;
   produto: { nome: string; unidade: string };
   usuario: { nome: string };
+  formaPagamento: FormaPagamento | null;
+  cliente: string | null;
   // Presente = esta movimentação já foi desfeita.
   estorno: LigacaoEstorno | null;
   // Presente = esta linha É o desfazer de outra.
@@ -36,6 +43,7 @@ interface MovimentacaoApi {
 
 type FiltroTipo = TipoMovimentacao | "todos";
 type FiltroMotivo = MotivoMovimentacao | "todos";
+type FiltroPagamento = FormaPagamento | "todos";
 
 // Os motivos possíveis mudam conforme o tipo escolhido — mostrar "Venda" como
 // opção enquanto o filtro está em "Entradas" só rende lista vazia.
@@ -55,6 +63,7 @@ export function Historico() {
   const [erro, setErro] = useState<string | null>(null);
   const [tipo, setTipo] = useState<FiltroTipo>("todos");
   const [motivo, setMotivo] = useState<FiltroMotivo>("todos");
+  const [pagamento, setPagamento] = useState<FiltroPagamento>("todos");
   // Vazio = sem limite daquele lado. Um período aberto ("de 01/08 em diante")
   // é uma busca tão comum quanto o intervalo fechado.
   const [periodo, setPeriodo] = useState<Periodo>(PERIODO_VAZIO);
@@ -67,6 +76,7 @@ export function Historico() {
     const parametros = parametrosDoPeriodo(periodo);
     if (tipo !== "todos") parametros.set("tipo", tipo);
     if (motivo !== "todos") parametros.set("motivo", motivo);
+    if (pagamento !== "todos") parametros.set("formaPagamento", pagamento);
     const consulta = parametros.toString();
 
     try {
@@ -80,7 +90,7 @@ export function Historico() {
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar o histórico.");
     }
-  }, [tipo, motivo, periodo]);
+  }, [tipo, motivo, pagamento, periodo]);
 
   useEffect(() => {
     carregar();
@@ -158,6 +168,34 @@ export function Historico() {
           </select>
         </div>
 
+        <div>
+          <label className="block text-sm mb-1">Pagamento</label>
+          <div className="flex gap-2">
+            {(["todos", "a_vista", "fiado"] as FiltroPagamento[]).map((opcao) => (
+              <button
+                key={opcao}
+                type="button"
+                onClick={() => setPagamento(opcao)}
+                className={`flex-1 py-2 rounded-lg text-sm border ${
+                  pagamento === opcao
+                    ? "bg-marca text-white border-transparent"
+                    : "bg-white text-gray-700 border-gray-300"
+                }`}
+              >
+                {opcao === "todos"
+                  ? "Todos"
+                  : FORMAS_PAGAMENTO.find((f) => f.valor === opcao)!.rotulo}
+              </button>
+            ))}
+          </div>
+          {/* Só venda tem forma de pagamento, então filtrar por ela esconde
+              compra, perda e ajuste — dizer isso evita a conclusão de que as
+              movimentações sumiram. */}
+          {pagamento !== "todos" && (
+            <p className="text-xs text-gray-500 mt-1">Mostrando só vendas.</p>
+          )}
+        </div>
+
         <SeletorDePeriodo valor={periodo} aoMudar={setPeriodo} />
       </div>
 
@@ -181,6 +219,12 @@ export function Historico() {
             <div>
               {mov.produto.nome} — {mov.quantidade} {mov.produto.unidade} — {mov.usuario.nome}
             </div>
+
+            {mov.formaPagamento === "fiado" && (
+              <p className="text-xs text-amber-700 mt-1">
+                Fiado{mov.cliente ? ` · ${mov.cliente}` : ""}
+              </p>
+            )}
 
             {mov.estornoDe && (
               <p className="text-xs text-gray-500 mt-1">
@@ -241,7 +285,7 @@ export function Historico() {
         )}
         {movimentacoes?.length === 0 && (
           <li className="py-2 text-sm text-gray-500">
-            {tipo === "todos" && motivo === "todos" && !periodo.de && !periodo.ate
+            {tipo === "todos" && motivo === "todos" && pagamento === "todos" && !periodo.de && !periodo.ate
               ? "Nenhuma movimentação ainda."
               : "Nenhuma movimentação com esses filtros."}
           </li>

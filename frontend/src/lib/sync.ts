@@ -1,11 +1,13 @@
 import { api } from "./api";
-import { db } from "../db/db";
+import { db, type Unidade } from "../db/db";
 
 interface ProdutoApi {
   id: string;
   nome: string;
   categoriaId: string;
-  unidade: "kg" | "L";
+  // Reaproveita o tipo do banco local em vez de repetir a lista: quando uma
+  // unidade nova entra em db.ts, esta linha acompanha sozinha.
+  unidade: Unidade;
   estoqueMinimo: number;
   estoqueAtual: number;
   categoria: { nome: string };
@@ -127,6 +129,11 @@ export async function enviarMovimentacoesPendentes(): Promise<{ enviadas: number
           valor: m.valor,
           origemDispositivo: m.origemDispositivo,
           criadoEm: m.criadoEm,
+          // Só vão quando existem: o servidor recusa forma de pagamento em
+          // movimentação que não é venda, e a fila pode ter lançamentos
+          // gravados antes desta versão do app.
+          ...(m.formaPagamento ? { formaPagamento: m.formaPagamento } : {}),
+          ...(m.cliente ? { cliente: m.cliente } : {}),
         })),
       }),
     });
