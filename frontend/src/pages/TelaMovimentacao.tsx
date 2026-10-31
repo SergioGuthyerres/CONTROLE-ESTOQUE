@@ -9,7 +9,7 @@ import {
   type TipoMovimentacao,
 } from "../db/db";
 import { BuscaProduto } from "../components/BuscaProduto";
-import { FORMAS_PAGAMENTO, MOTIVOS_POR_TIPO } from "../lib/enums";
+import { FORMAS_PAGAMENTO, MOTIVOS_POR_TIPO, ROTULO_MOTIVO } from "../lib/enums";
 import { clientesJaUsados } from "../lib/clientes";
 import { idDoDispositivo } from "../lib/device";
 import { limiteQuantidadeOnlineCache } from "../lib/config";
@@ -17,24 +17,25 @@ import { api } from "../lib/api";
 import { sincronizarSePossivel } from "../lib/sync";
 import { estoqueLocalDeProduto } from "../lib/estoque";
 
-const TITULOS: Record<TipoMovimentacao, string> = {
-  entrada: "Registrar Entrada",
-  saida: "Registrar Saída",
-};
+// O título acompanha o MOTIVO, não o tipo. Antes a tela inicial dizia
+// "Registrar Venda" e a tela de destino dizia "Registrar Saída" — duas
+// palavras para a mesma coisa, e quem usa o sistema sem conhecer o modelo de
+// dados por dentro não tem como saber que são a mesma. Agora a tela se chama
+// pelo que está sendo feito: venda, perda, compra, devolução.
+function titulo(motivo: MotivoMovimentacao): string {
+  return `Registrar ${ROTULO_MOTIVO[motivo]}`;
+}
 
 export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   const navigate = useNavigate();
   const [produto, setProduto] = useState<ProdutoLocal | null>(null);
-  const [motivo, setMotivo] = useState<MotivoMovimentacao>(
-    MOTIVOS_POR_TIPO[tipo][0].valor,
-  );
+  const [motivo, setMotivo] = useState<MotivoMovimentacao>(MOTIVOS_POR_TIPO[tipo][0].valor);
   const [quantidade, setQuantidade] = useState("");
   const [valor, setValor] = useState("");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("a_vista");
   const [cliente, setCliente] = useState("");
-  const [avisoEstoqueServidor, setAvisoEstoqueServidor] = useState<
-    string | null
-  >(null);
+  const [estoqueLocal, setEstoqueLocal] = useState<number | null>(null);
+  const [avisoEstoqueServidor, setAvisoEstoqueServidor] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -46,7 +47,49 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
 
   const limite = limiteQuantidadeOnlineCache();
   const quantidadeNumero = Number(quantidade.replace(",", "."));
+  const quantidadeValida = Number.isFinite(quantidadeNumero) && quantidadeNumero > 0;
   const quantidadeGrande = tipo === "saida" && quantidadeNumero > limite;
+
+  // Aviso, não bloqueio. O estoque pode estar atrás da realidade porque a
+  // entrada ainda não foi lançada, e travar a venda do balcão por causa disso
+  // seria pior do que o número negativo — que o RF10 já sabe apontar depois.
+  const deixaNegativo =
+    tipo === "saida" &&
+    quantidadeValida &&
+    estoqueLocal !== null &&
+    quantidadeNumero > estoqueLocal;
+
+  useEffect(() => {
+    if (!produto) {
+      setEstoqueLocal(null);
+      return;
+    }
+    estoqueLocalDeProduto(produto).then(setEstoqueLocal);
+  }, [produto]);
+
+  // O que ainda falta para poder confirmar. Devolver a frase, e não só um
+  // booleano, é o que permite dizer POR QUE o botão está apagado em vez de
+  // deixar a pessoa adivinhar.
+  function oQueFalta(): string | null {
+    if (!produto) return "Escolha o produto.";
+    if (!quantidadeValida) return `Informe a quantidade em ${produto.unidade}.`;
+    if (fiado && cliente.trim().length < 2) return "Escreva o nome de quem levou fiado.";
+    return null;
+  }
+
+  const faltando = oQueFalta();
+  const podeConfirmar = faltando === null && !salvando;
+
+  // Resumo do que o botão vai fazer, na linguagem da loja. Uma confirmação em
+  // dois toques seria atrito demais numa ação que acontece dezenas de vezes
+  // por dia; dizer em voz alta o que vai ser gravado custa zero toque e
+  // resolve o mesmo problema — ninguém confirma no escuro.
+  function resumo(): string {
+    if (!produto || !quantidadeValida) return "Confirmar";
+    const quanto = `${quantidadeNumero} ${produto.unidade}`;
+    const comoPago = ehVenda ? (fiado ? " fiado" : " à vista") : "";
+    return `Confirmar ${ROTULO_MOTIVO[motivo].toLocaleLowerCase("pt-BR")}${comoPago}: ${quanto} de ${produto.nome}`;
+  }
 
   function escolherProduto(p: ProdutoLocal) {
     setProduto(p);
@@ -55,16 +98,9 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   }
 
   async function confirmar() {
-    if (!produto || !quantidadeNumero || quantidadeNumero <= 0) {
-      setErro("Escolha um produto e informe uma quantidade válida.");
-      return;
-    }
-
-    // Barrado aqui e também no servidor. A checagem daqui existe para a pessoa
-    // ver o que falta na hora, em vez de a venda entrar na fila e só ser
-    // recusada na sincronização — quando ninguém mais lembra do que foi.
-    if (fiado && cliente.trim().length < 2) {
-      setErro("Venda fiado precisa do nome de quem levou.");
+    const pendencia = oQueFalta();
+    if (pendencia) {
+      setErro(pendencia);
       return;
     }
 
@@ -81,18 +117,16 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
           );
           return;
         }
-        const resposta = await api<{ estoqueAtual: number }>(
-          `/produtos/${produto.id}/estoque`,
-        );
+        const resposta = await api<{ estoqueAtual: number }>(`/produtos/${produto!.id}/estoque`);
         setAvisoEstoqueServidor(
-          `Estoque no sistema no momento: ${resposta.estoqueAtual} ${produto.unidade}.`,
+          `Estoque no sistema no momento: ${resposta.estoqueAtual} ${produto!.unidade}.`,
         );
       }
 
       await db.movimentacoes.add({
         id: crypto.randomUUID(),
-        produtoId: produto.id,
-        produtoNome: produto.nome,
+        produtoId: produto!.id,
+        produtoNome: produto!.nome,
         tipo,
         motivo,
         quantidade: quantidadeNumero,
@@ -106,13 +140,13 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
 
       sincronizarSePossivel(); // dispara em segundo plano, não trava a tela
 
-      navigate("/", { state: { sucesso: `${TITULOS[tipo]} registrada.` } });
+      navigate("/", {
+        state: {
+          sucesso: `${ROTULO_MOTIVO[motivo]} registrada: ${quantidadeNumero} ${produto!.unidade} de ${produto!.nome}.`,
+        },
+      });
     } catch (e) {
-      setErro(
-        e instanceof Error
-          ? e.message
-          : "Não foi possível salvar. Tente de novo.",
-      );
+      setErro(e instanceof Error ? e.message : "Não foi possível salvar. Tente de novo.");
     } finally {
       setSalvando(false);
     }
@@ -120,13 +154,14 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
 
   return (
     <div className="space-y-4 pt-2">
-      <h1 className="text-lg font-semibold">{TITULOS[tipo]}</h1>
+      <h1 className="text-lg font-semibold">{titulo(motivo)}</h1>
 
       {!produto && <BuscaProduto onEscolher={escolherProduto} tipo={tipo} />}
 
       {produto && (
         <ProdutoEscolhido
           produto={produto}
+          estoqueLocal={estoqueLocal}
           onTrocar={() => setProduto(null)}
           motivo={motivo}
           onMotivoChange={setMotivo}
@@ -136,6 +171,7 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
           valor={valor}
           onValorChange={setValor}
           quantidadeGrande={quantidadeGrande}
+          deixaNegativo={deixaNegativo}
           limite={limite}
           ehVenda={ehVenda}
           formaPagamento={formaPagamento}
@@ -146,24 +182,28 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
         />
       )}
 
-      {avisoEstoqueServidor && (
-        <p className="text-sm bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-          {avisoEstoqueServidor}
+      {avisoEstoqueServidor && <p className="aviso">{avisoEstoqueServidor}</p>}
+      {erro && (
+        <p role="alert" className="cartao border-red-200 bg-red-50 text-sm text-red-700">
+          {erro}
         </p>
       )}
-      {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
       {produto && (
-        <button
-          className="botao-grande"
-          onClick={confirmar}
-          disabled={salvando}
-        >
-          {salvando ? "Salvando..." : "Confirmar"}
-        </button>
+        <div className="space-y-2">
+          <button
+            className="botao-grande text-base leading-snug"
+            onClick={confirmar}
+            disabled={!podeConfirmar}
+          >
+            {salvando ? "Salvando..." : resumo()}
+          </button>
+          {faltando && !salvando && <p className="dica text-center">{faltando}</p>}
+        </div>
       )}
-      <Link to="/" className="botao-medio block text-center bg-gray-700">
-        Sair
+
+      <Link to="/" className="botao-secundario inline-block text-center">
+        Cancelar
       </Link>
     </div>
   );
@@ -171,6 +211,7 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
 
 function ProdutoEscolhido(props: {
   produto: ProdutoLocal;
+  estoqueLocal: number | null;
   onTrocar: () => void;
   motivo: MotivoMovimentacao;
   onMotivoChange: (m: MotivoMovimentacao) => void;
@@ -180,6 +221,7 @@ function ProdutoEscolhido(props: {
   valor: string;
   onValorChange: (v: string) => void;
   quantidadeGrande: boolean;
+  deixaNegativo: boolean;
   limite: number;
   ehVenda: boolean;
   formaPagamento: FormaPagamento;
@@ -188,40 +230,31 @@ function ProdutoEscolhido(props: {
   onClienteChange: (v: string) => void;
   clientes: string[];
 }) {
-  const [estoqueLocal, setEstoqueLocal] = useState<number | null>(null);
-
-  useEffect(() => {
-    estoqueLocalDeProduto(props.produto).then(setEstoqueLocal);
-  }, [props.produto]);
-
   return (
     <div className="cartao space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="font-medium">{props.produto.nome}</div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-medium break-words">{props.produto.nome}</div>
           <div className="text-sm text-gray-500">
             {props.produto.categoriaNome}
-            {estoqueLocal !== null &&
-              ` · estoque conhecido: ${estoqueLocal} ${props.produto.unidade}`}
+            {props.estoqueLocal !== null &&
+              ` · estoque conhecido: ${props.estoqueLocal} ${props.produto.unidade}`}
           </div>
         </div>
-        <button
-          type="button"
-          className="text-sm underline"
-          onClick={props.onTrocar}
-        >
-          Trocar
+        <button type="button" className="botao-secundario shrink-0 py-2" onClick={props.onTrocar}>
+          Trocar produto
         </button>
       </div>
 
       <div>
-        <label className="block text-sm mb-1">Motivo</label>
+        <label className="rotulo" htmlFor="mov-motivo">
+          Motivo
+        </label>
         <select
+          id="mov-motivo"
           className="campo"
           value={props.motivo}
-          onChange={(e) =>
-            props.onMotivoChange(e.target.value as MotivoMovimentacao)
-          }
+          onChange={(e) => props.onMotivoChange(e.target.value as MotivoMovimentacao)}
         >
           {MOTIVOS_POR_TIPO[props.tipo].map((opcao) => (
             <option key={opcao.valor} value={opcao.valor}>
@@ -232,10 +265,11 @@ function ProdutoEscolhido(props: {
       </div>
 
       <div>
-        <label className="block text-sm mb-1">
-          Quantidade ({props.produto.unidade})
+        <label className="rotulo" htmlFor="mov-quantidade">
+          Quantidade em {props.produto.unidade}
         </label>
         <input
+          id="mov-quantidade"
           className="campo"
           inputMode="decimal"
           value={props.quantidade}
@@ -243,36 +277,52 @@ function ProdutoEscolhido(props: {
           autoFocus
         />
         {props.quantidadeGrande && (
-          <p className="text-sm text-amber-700 mt-1">
-            Quantidade acima de {props.limite}: vai precisar de internet pra
-            confirmar.
+          <p className="dica text-amber-700">
+            Quantidade acima de {props.limite}: vai precisar de internet para confirmar.
+          </p>
+        )}
+        {props.deixaNegativo && (
+          <p className="dica text-amber-700">
+            Isso é mais do que o estoque conhecido ({props.estoqueLocal} {props.produto.unidade}).
+            Pode ser que falte lançar uma entrada — confira antes de confirmar.
           </p>
         )}
       </div>
 
       <div>
-        <label className="block text-sm mb-1">Valor total (R$)</label>
+        <label className="rotulo" htmlFor="mov-valor">
+          Valor total (R$)
+        </label>
         <input
+          id="mov-valor"
           className="campo"
           inputMode="decimal"
           value={props.valor}
           onChange={(e) => props.onValorChange(e.target.value)}
+          placeholder="0,00"
         />
+        {/* Trocar total por preço unitário é o erro silencioso deste campo:
+            o número entra, nada reclama, e o relatório do mês sai errado. */}
+        <p className="dica">
+          O valor da operação inteira, não o preço por {props.produto.unidade}. Pode deixar em
+          branco se não souber.
+        </p>
       </div>
 
       {props.ehVenda && (
         <div>
-          <label className="block text-sm mb-1">Pagamento</label>
+          <label className="rotulo">Pagamento</label>
           <div className="flex gap-2">
             {FORMAS_PAGAMENTO.map((opcao) => (
               <button
                 key={opcao.valor}
                 type="button"
+                aria-pressed={props.formaPagamento === opcao.valor}
                 onClick={() => props.onFormaPagamentoChange(opcao.valor)}
-                className={`flex-1 py-3 rounded-lg text-base border ${
+                className={`flex-1 rounded-lg border py-3 text-base ${
                   props.formaPagamento === opcao.valor
-                    ? "bg-marca text-white border-transparent"
-                    : "bg-white text-gray-700 border-gray-300"
+                    ? "border-transparent bg-marca font-semibold text-white"
+                    : "border-gray-300 bg-white text-gray-700"
                 }`}
               >
                 {opcao.rotulo}
@@ -284,7 +334,7 @@ function ProdutoEscolhido(props: {
 
       {props.ehVenda && props.formaPagamento === "fiado" && (
         <div>
-          <label className="block text-sm mb-1" htmlFor="cliente">
+          <label className="rotulo" htmlFor="cliente">
             Quem levou
           </label>
           {/* datalist e não select: o nome é digitado no balcão, e obrigar
@@ -305,6 +355,10 @@ function ProdutoEscolhido(props: {
               <option key={nome} value={nome} />
             ))}
           </datalist>
+          <p className="dica">
+            Se já levou fiado antes, escolha o nome da lista — assim a dívida dele não aparece
+            dividida em dois nomes parecidos.
+          </p>
         </div>
       )}
     </div>
