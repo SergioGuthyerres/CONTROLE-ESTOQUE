@@ -130,9 +130,21 @@ model Movimentacao {
 // que a loja precisa quando alguém contesta a cobrança — QUEM deu baixa e
 // QUANDO. Aqui essa resposta é uma linha nova, que ninguém sobrescreve.
 model PagamentoFiado {
-  id             String       @id @default(uuid())
-  movimentacaoId String       @unique
+  id String @id @default(uuid())
+
+  // SEM @unique, de propósito. A primeira versão amarrava um pagamento a cada
+  // dívida, e isso só servia para quem paga tudo de uma vez — que não é como
+  // o caderno de fiado funciona. O freguês aparece e deixa o que tem: R$ 50
+  // hoje, R$ 30 na semana que vem. Cada entrega dessas é uma linha nova aqui,
+  // e a dívida está quitada quando a soma das linhas cobre o valor da venda.
+  movimentacaoId String
   movimentacao   Movimentacao @relation(fields: [movimentacaoId], references: [id])
+
+  // Quanto deste pagamento foi para ESTA dívida. Um pagamento de R$ 50 que
+  // cobre uma dívida de R$ 30 e parte de outra de R$ 40 vira duas linhas:
+  // 30 e 20. Guardar assim mantém o relatório por venda funcionando e deixa
+  // claro, meses depois, o que foi pago de quê.
+  valor Decimal
 
   // Quem deu baixa — não é quem lançou a venda, e é justamente por isso que
   // este campo existe separado do usuarioId da movimentação.
@@ -146,6 +158,7 @@ model PagamentoFiado {
 
   criadoEm DateTime @default(now())
 
+  @@index([movimentacaoId])
   @@index([criadoEm])
   @@index([cliente])
 }

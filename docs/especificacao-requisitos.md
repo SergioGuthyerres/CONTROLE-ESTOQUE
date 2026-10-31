@@ -9,6 +9,7 @@
 ### Cadastros
 - **RF01** — Cadastrar, editar e listar Produto (nome, categoria, unidade — kg/L/un, estoque mínimo)
 - **RF02** — Cadastrar, editar e listar Categoria
+- **RF24** — Receber **pagamento parcial** de fiado: o sistema aceita qualquer valor até o total em aberto do devedor e o distribui pelas dívidas dele, da mais antiga para a mais nova. A dívida só sai da lista quando a soma dos pagamentos cobre o valor da venda. Pagamento maior que a dívida é recusado
 - **RF22** — Barrar lançamento inconsistente na tela: venda, compra ou devolução com valor R$ 0,00 (a mensagem orienta trocar o motivo para perda, uso interno ou ajuste de inventário) e quantidade quebrada em produto de unidade `un`. Exigir confirmação explícita, sem bloquear, quando a quantidade passar de 1000, o valor passar de R$ 5.000, a saída deixar o estoque negativo, ou houver lançamento idêntico nos últimos 2 minutos no mesmo aparelho
 - **RF23** — Listar no Resumo do Dia os lançamentos já gravados que caem nessas regras, para correção por estorno. É o que cobre um aparelho com versão antiga do app em cache
 - **RF21** — Remover um produto do cadastro, identificando-o sempre pelo **id**, nunca pelo nome (há nomes repetidos e parecidos). Antes de remover, o sistema conta os registros de estoque vinculados e mostra o número na confirmação. Produto **sem nenhuma movimentação** é apagado de verdade; produto **com histórico** é **arquivado** — some das telas de venda, compra e busca, e o histórico e os relatórios continuam íntegros. Arquivar é reversível
@@ -87,7 +88,8 @@ erDiagram
     }
     PAGAMENTO_FIADO {
         uuid id PK
-        uuid movimentacao_id FK "único — uma dívida só se paga uma vez (RF20)"
+        uuid movimentacao_id FK "sem único: uma dívida recebe vários pagamentos (RF24)"
+        decimal valor "quanto deste pagamento foi para esta dívida"
         uuid usuario_id FK "quem deu baixa, não quem vendeu"
         string cliente "cópia do nome no dia da baixa — é um recibo"
         datetime criado_em
@@ -126,7 +128,13 @@ erDiagram
    fiado sem nome é dívida que ninguém consegue cobrar. Movimentação vinda de
    um aparelho com versão antiga do app, sem esses campos, continua sendo
    aceita e assume `a_vista`.
-6. **Dar baixa num fiado não altera a venda** — cria uma linha em
+6. **Pagamento de fiado é um valor entregue, não uma dívida quitada.** É a
+   diferença entre o sistema e o caderno que ele substitui: o freguês aparece
+   e deixa o que tem. Um pagamento é espalhado pelas dívidas da pessoa da mais
+   antiga para a mais nova, e a última alcançada pode ficar paga pela metade.
+   Receber mais do que se deve é recusado — não existe lugar no modelo para
+   "a loja deve ao freguês", então o excedente sumiria.
+7. **Dar baixa num fiado não altera a venda** — cria uma linha em
    `PAGAMENTO_FIADO`. É a mesma regra do estorno, pelo mesmo motivo: um campo
    `pago` sobrescrito não guardaria quem recebeu nem quando, que é exatamente
    o que a loja precisa no dia em que o freguês diz que já pagou. Uma venda

@@ -14,13 +14,18 @@ export interface VendaFiado {
   unidade: string;
   vendidoPor: string;
   // Preenchidos pelo `include` da rota.
-  pagamentoFiado: { id: string } | null;
+  // Soma do que já foi pago desta venda. Pode ser parcial: o freguês deixa o
+  // que tem, e a dívida só sai da lista quando a soma cobre o valor.
+  pago: number;
   estorno: { id: string } | null;
 }
 
 export interface DividaEmAberto {
   movimentacaoId: string;
+  // Valor original da venda, quanto já foi pago dela, e o que falta.
   valor: number;
+  pago: number;
+  saldo: number;
   criadoEm: string;
   produtoNome: string;
   quantidade: number;
@@ -53,8 +58,15 @@ export function chaveDoCliente(nome: string): string {
 // Uma venda fiado só é dívida enquanto ninguém deu baixa nela — e enquanto
 // ela existe de fato. Venda desfeita não é dívida: a mercadoria voltou para a
 // prateleira, e cobrar por ela seria cobrar duas vezes o mesmo erro.
+export function saldoDaDivida(venda: VendaFiado): number {
+  // Arredondado ao centavo: somas de Decimal convertidas para número deixam
+  // restos de 0,0000001 que fariam uma dívida quitada continuar na lista
+  // devendo um centésimo de centavo.
+  return Math.round((venda.valor - venda.pago) * 100) / 100;
+}
+
 export function ehDividaEmAberto(venda: VendaFiado): boolean {
-  return venda.pagamentoFiado === null && venda.estorno === null && !!venda.cliente?.trim();
+  return saldoDaDivida(venda) > 0 && venda.estorno === null && !!venda.cliente?.trim();
 }
 
 export function listarDevedores(vendas: VendaFiado[]): Devedor[] {
@@ -70,6 +82,8 @@ export function listarDevedores(vendas: VendaFiado[]): Devedor[] {
     const divida: DividaEmAberto = {
       movimentacaoId: venda.id,
       valor: venda.valor,
+      pago: venda.pago,
+      saldo: saldoDaDivida(venda),
       criadoEm: venda.criadoEm,
       produtoNome: venda.produtoNome,
       quantidade: venda.quantidade,
@@ -81,7 +95,7 @@ export function listarDevedores(vendas: VendaFiado[]): Devedor[] {
     if (!existente) {
       porCliente.set(chave, {
         cliente: nome,
-        total: venda.valor,
+        total: saldoDaDivida(venda),
         desde: venda.criadoEm,
         dividas: [divida],
       });
@@ -89,7 +103,7 @@ export function listarDevedores(vendas: VendaFiado[]): Devedor[] {
       continue;
     }
 
-    existente.total += venda.valor;
+    existente.total += saldoDaDivida(venda);
     existente.dividas.push(divida);
     if (venda.criadoEm < existente.desde) existente.desde = venda.criadoEm;
     // Entre grafias diferentes do mesmo nome, exibe a da compra mais recente:
@@ -110,4 +124,46 @@ export function listarDevedores(vendas: VendaFiado[]): Devedor[] {
   // valor colocaria a dívida grande e recente na frente da pequena e
   // esquecida — e é a esquecida que vira prejuízo.
   return [...porCliente.values()].sort((a, b) => a.desde.localeCompare(b.desde));
+}
+
+export interface ParcelaAlocada {
+  movimentacaoId: string;
+  valor: number;
+}
+
+// Como o dinheiro que o freguês entregou se espalha pelas dívidas dele.
+//
+// Da mais antiga para a mais nova, que é a ordem em que se cobra e a ordem do
+// caderno: quem paga R$ 50 está pagando o que deve há mais tempo, não a
+// compra de ontem. A última dívida alcançada pode ficar paga pela metade, e é
+// exatamente isso que o pagamento parcial precisa permitir.
+export function alocarPagamento(dividas: DividaEmAberto[], valorPago: number): ParcelaAlocada[] {
+  const parcelas: ParcelaAlocada[] = [];
+  let restante = Math.round(valorPago * 100) / 100;
+
+  // As dívidas já chegam da mais antiga para a mais nova (listarDevedores
+  // ordena), mas não custa garantir: um pagamento alocado fora de ordem é
+  // impossível de conferir contra o caderno depois.
+  const emOrdem = [...dividas].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
+
+  for (const divida of emOrdem) {
+    if (restante <= 0) break;
+    const parcela = Math.min(divida.saldo, restante);
+    if (parcela <= 0) continue;
+
+    parcelas.push({
+      movimentacaoId: divida.movimentacaoId,
+      valor: Math.round(parcela * 100) / 100,
+    });
+    restante = Math.round((restante - parcela) * 100) / 100;
+  }
+
+  return parcelas;
+}
+
+// Receber mais do que a pessoa deve não é generosidade do sistema: é um
+// número digitado errado que vira crédito invisível, porque não existe lugar
+// nenhum no modelo para guardar "a loja deve ao freguês".
+export function totalEmAberto(dividas: DividaEmAberto[]): number {
+  return Math.round(dividas.reduce((soma, d) => soma + d.saldo, 0) * 100) / 100;
 }
