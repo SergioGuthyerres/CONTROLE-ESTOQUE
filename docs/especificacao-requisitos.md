@@ -9,6 +9,7 @@
 ### Cadastros
 - **RF01** — Cadastrar, editar e listar Produto (nome, categoria, unidade — kg/L/un, estoque mínimo)
 - **RF02** — Cadastrar, editar e listar Categoria
+- **RF21** — Remover um produto do cadastro, identificando-o sempre pelo **id**, nunca pelo nome (há nomes repetidos e parecidos). Antes de remover, o sistema conta os registros de estoque vinculados e mostra o número na confirmação. Produto **sem nenhuma movimentação** é apagado de verdade; produto **com histórico** é **arquivado** — some das telas de venda, compra e busca, e o histórico e os relatórios continuam íntegros. Arquivar é reversível
 
 ### Movimentação de estoque
 - **RF03** — Registrar entrada de estoque (produto, quantidade, valor, tipo: compra/devolução)
@@ -66,6 +67,7 @@ erDiagram
         uuid categoria_id FK
         string unidade "kg | L | un"
         decimal estoque_minimo
+        datetime arquivado_em "nulo = em uso; preenchido = fora das telas, histórico preservado (RF21)"
     }
     MOVIMENTACAO {
         uuid id PK
@@ -128,7 +130,14 @@ erDiagram
    o que a loja precisa no dia em que o freguês diz que já pagou. Uma venda
    fiado deixa de ser dívida quando existe um pagamento **ou** quando ela foi
    estornada — venda desfeita não se cobra.
-7. A checagem do RF07 consulta o estoque **calculado no servidor** (não o
+7. **Produto com histórico não se apaga, se arquiva.** É a mesma regra 2
+   olhada do outro lado: como estoque é a soma das movimentações, apagar um
+   produto com movimentações reescreveria relatórios de meses já conferidos e
+   derrubaria a auditoria do RF13. Pior ainda para o RNF02: um aparelho com
+   venda daquele produto na fila offline passaria a falhar na sincronização
+   para sempre, travando a fila inteira e não só aquela linha. Produto que
+   nunca foi movimentado não tem nada disso, e por isso é apagado mesmo.
+8. A checagem do RF07 consulta o estoque **calculado no servidor** (não o
    local do dispositivo) antes de liberar uma saída grande — é a única
    operação que depende de estar online.
 

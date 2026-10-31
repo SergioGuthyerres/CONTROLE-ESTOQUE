@@ -57,8 +57,21 @@ model Produto {
   criadoEm      DateTime       @default(now())
   movimentacoes Movimentacao[]
 
+  // Arquivar em vez de apagar. Estoque é a SOMA das movimentações (regra 1),
+  // então apagar um produto com histórico não "limpa o cadastro": reescreve
+  // relatórios de meses que já foram conferidos à mão, e quebra a auditoria
+  // do RF13. Pior: um celular com venda daquele produto na fila offline
+  // passaria a falhar na sincronização para sempre, travando a fila inteira.
+  //
+  // Preenchido = sumiu das telas de venda, compra e busca; o histórico e os
+  // relatórios continuam íntegros. Nulo = produto em uso. Produto que nunca
+  // teve movimentação nenhuma é apagado de verdade — não há o que preservar.
+  arquivadoEm DateTime?
+
   @@index([nome])
   @@index([categoriaId])
+  // "Os produtos em uso, em ordem de nome" é a consulta de toda tela de venda.
+  @@index([arquivadoEm, nome])
 }
 
 // Registro append-only: uma movimentação nunca é editada nem apagada.

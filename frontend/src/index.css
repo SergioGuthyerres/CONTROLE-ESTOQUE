@@ -19,4 +19,29 @@
   .cartao {
     @apply rounded-xl border border-gray-200 p-4 shadow-sm bg-white;
   }
+
+  /* Ação que não é a principal da tela: some do caminho sem sumir da vista.
+     Usar o mesmo peso visual do botão principal faria o olho escolher ao
+     acaso — e numa tela de estoque a escolha errada custa contagem errada. */
+  .botao-secundario {
+    @apply w-auto rounded-lg px-4 py-3 text-sm font-semibold text-gray-700
+      border border-gray-300 bg-white active:scale-[0.98] transition
+      disabled:opacity-40;
+  }
+
+  /* Caixa de confirmação de coisa que não tem desfazer. O âmbar é o mesmo do
+     histórico e da baixa de fiado: quem já viu uma reconhece a próxima. */
+  .aviso {
+    @apply rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm;
+  }
+
+  .rotulo {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Explicação curta embaixo do campo. Existe para a pessoa não precisar
+     adivinhar o que o campo espera — RNF05, baixa familiaridade digital. */
+  .dica {
+    @apply mt-1 text-xs text-gray-500;
+  }
 }

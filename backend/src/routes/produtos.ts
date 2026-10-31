@@ -5,6 +5,11 @@ import { exigirAutenticacao } from "../middleware/auth";
 import { calcularEstoque, calcularEstoqueEmLote } from "../services/stockService";
 import { TIPOS_MOVIMENTACAO, UNIDADES } from "../lib/enums";
 import { assincrono } from "../middleware/erros";
+import {
+  acaoParaRemover,
+  avisoDaRemocao,
+  garantirQuePodeExcluir,
+} from "../lib/arquivamentoProduto";
 
 export const produtosRouter = Router();
 produtosRouter.use(exigirAutenticacao);
@@ -13,9 +18,17 @@ produtosRouter.use(exigirAutenticacao);
 // como filtro obrigatório, decisão da seção 5.1 do documento de visão.
 produtosRouter.get("/", assincrono(async (req, res) => {
   const busca = typeof req.query.busca === "string" ? req.query.busca : undefined;
+  // Arquivado fica de fora por padrão — inclusive do catálogo que os
+  // aparelhos baixam, e é isso que faz o produto sumir das telas de venda
+  // sozinho, sem precisar de rota nova (ver baixarCatalogo em
+  // frontend/src/lib/sync.ts, que apaga o que não veio na resposta).
+  const arquivados = req.query.arquivados === "true";
 
   const produtos = await prisma.produto.findMany({
-    where: busca ? { nome: { contains: busca } } : undefined,
+    where: {
+      ...(busca ? { nome: { contains: busca } } : {}),
+      arquivadoEm: arquivados ? { not: null } : null,
+    },
     include: { categoria: true },
     orderBy: { nome: "asc" },
   });
@@ -61,6 +74,9 @@ produtosRouter.get("/mais-movimentados", assincrono(async (req, res) => {
       // estornado, é sugerir justamente o erro de novo.
       motivo: { not: "estorno" },
       estorno: { is: null },
+      // Sugerir um produto arquivado seria oferecer de volta justamente o
+      // cadastro que alguém acabou de tirar da frente.
+      produto: { arquivadoEm: null },
     },
     // Conta lançamentos, não quantidade: o atalho existe para o produto que é
     // registrado MUITAS VEZES, não para o que sai em quilo. Um saco de 50 kg
@@ -105,6 +121,72 @@ produtosRouter.put("/:id", assincrono(async (req, res) => {
   const produto = await prisma.produto.update({
     where: { id: req.params.id },
     data: parse.data,
+  });
+  res.json(produto);
+}));
+
+// Quantos registros de estoque este produto tem — é o número que a tela
+// mostra na confirmação antes de remover. Rota separada do DELETE de
+// propósito: perguntar não pode ter efeito nenhum.
+produtosRouter.get("/:id/vinculos", assincrono(async (req, res) => {
+  const produto = await prisma.produto.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, nome: true, arquivadoEm: true },
+  });
+  if (!produto) return res.status(404).json({ erro: "Produto não encontrado" });
+
+  const movimentacoes = await prisma.movimentacao.count({
+    where: { produtoId: produto.id },
+  });
+  const vinculos = { movimentacoes };
+
+  res.json({
+    produtoId: produto.id,
+    nome: produto.nome,
+    arquivado: produto.arquivadoEm !== null,
+    movimentacoes,
+    acao: acaoParaRemover(vinculos),
+    aviso: avisoDaRemocao(produto.nome, vinculos),
+  });
+}));
+
+// Apaga de verdade — e só quando não há o que preservar. A checagem é feita
+// aqui no servidor, e não só na tela: quem chama a API direto também não
+// apaga histórico.
+produtosRouter.delete("/:id", assincrono(async (req, res) => {
+  const produto = await prisma.produto.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, nome: true },
+  });
+  if (!produto) return res.status(404).json({ erro: "Produto não encontrado" });
+
+  const movimentacoes = await prisma.movimentacao.count({
+    where: { produtoId: produto.id },
+  });
+  garantirQuePodeExcluir({ movimentacoes });
+
+  await prisma.produto.delete({ where: { id: produto.id } });
+  res.json({ apagado: produto.id, nome: produto.nome });
+}));
+
+// Arquivar e desarquivar são UPDATE num campo do produto, não DELETE de
+// movimentação: a regra append-only continua intacta.
+produtosRouter.post("/:id/arquivar", assincrono(async (req, res) => {
+  const produto = await prisma.produto.update({
+    where: { id: req.params.id },
+    // Idempotente: arquivar duas vezes não muda a data da primeira, e o
+    // mesmo toque repetido num celular lento não vira um estado diferente.
+    data: { arquivadoEm: new Date() },
+    select: { id: true, nome: true, arquivadoEm: true },
+  });
+  res.json(produto);
+}));
+
+produtosRouter.post("/:id/desarquivar", assincrono(async (req, res) => {
+  const produto = await prisma.produto.update({
+    where: { id: req.params.id },
+    data: { arquivadoEm: null },
+    select: { id: true, nome: true, arquivadoEm: true },
   });
   res.json(produto);
 }));
