@@ -16,6 +16,13 @@ import { limiteQuantidadeOnlineCache } from "../lib/config";
 import { api } from "../lib/api";
 import { sincronizarSePossivel } from "../lib/sync";
 import { estoqueLocalDeProduto } from "../lib/estoque";
+import {
+  bloqueios,
+  confirmacoes,
+  conferir,
+  type Anomalia,
+  type Lancamento,
+} from "../lib/anomalias";
 
 // O título acompanha o MOTIVO, não o tipo. Antes a tela inicial dizia
 // "Registrar Venda" e a tela de destino dizia "Registrar Saída" — duas
@@ -37,6 +44,9 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   const [avisoEstoqueServidor, setAvisoEstoqueServidor] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  // Anomalias que a pessoa ainda não leu. Enquanto houver, o botão pergunta
+  // em vez de gravar.
+  const [aConfirmar, setAConfirmar] = useState<Anomalia[] | null>(null);
 
   // Forma de pagamento só existe em venda: compra, perda e ajuste não têm.
   const ehVenda = tipo === "saida" && motivo === "venda";
@@ -49,14 +59,25 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   const quantidadeValida = Number.isFinite(quantidadeNumero) && quantidadeNumero > 0;
   const quantidadeGrande = tipo === "saida" && quantidadeNumero > limite;
 
-  // Aviso, não bloqueio. O estoque pode estar atrás da realidade porque a
-  // entrada ainda não foi lançada, e travar a venda do balcão por causa disso
-  // seria pior do que o número negativo — que o RF10 já sabe apontar depois.
-  const deixaNegativo =
-    tipo === "saida" &&
-    quantidadeValida &&
-    estoqueLocal !== null &&
-    quantidadeNumero > estoqueLocal;
+  const valorNumero = Number(valor.replace(",", ".")) || 0;
+
+  // As regras moram em src/lib/anomalias.ts, puras e testadas. Aqui a tela só
+  // monta o lançamento e obedece. A repetição recente entra depois, no toque
+  // do botão, porque exige consultar a fila local.
+  const lancamento: Lancamento | null = produto
+    ? {
+        tipo,
+        motivo,
+        quantidade: quantidadeNumero,
+        valor: valorNumero,
+        unidade: produto.unidade,
+        produtoNome: produto.nome,
+        estoqueConhecido: estoqueLocal,
+      }
+    : null;
+
+  const travas =
+    lancamento && quantidadeValida ? bloqueios(conferir(lancamento)) : [];
 
   useEffect(() => {
     if (!produto) {
@@ -73,6 +94,9 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
     if (!produto) return "Escolha o produto.";
     if (!quantidadeValida) return `Falta dizer a quantidade em ${produto.unidade}.`;
     if (fiado && cliente.trim().length < 2) return "Falta o nome de quem levou fiado.";
+    // Bloqueio é o que nunca pode ser gravado — some do caminho com a mesma
+    // frase que explica como resolver.
+    if (travas.length > 0) return travas[0].mensagem;
     return null;
   }
 
@@ -96,14 +120,38 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
     setErro(null);
   }
 
-  async function confirmar() {
+  // Primeiro toque: confere as anomalias que só dá para saber consultando a
+  // fila local, e pergunta se houver alguma. Segundo toque (no "Confirmar
+  // mesmo assim"): grava.
+  async function tentarConfirmar() {
     const pendencia = oQueFalta();
     if (pendencia) {
       setErro(pendencia);
       return;
     }
-
     setErro(null);
+
+    const identicosRecentes = (
+      await db.movimentacoes
+        .where({ produtoId: produto!.id })
+        .filter(
+          (m) =>
+            m.tipo === tipo && m.motivo === motivo && m.quantidade === quantidadeNumero,
+        )
+        .toArray()
+    ).map((m) => m.criadoEm);
+
+    const achadas = confirmacoes(conferir({ ...lancamento!, identicosRecentes }));
+    if (achadas.length > 0) {
+      setAConfirmar(achadas);
+      return;
+    }
+
+    await gravar();
+  }
+
+  async function gravar() {
+    setAConfirmar(null);
     setSalvando(true);
     try {
       // RF07: saída grande exige internet — o app confere o estoque real no
@@ -225,12 +273,6 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
                   Quantidade acima de {limite}: vai precisar de internet para confirmar.
                 </p>
               )}
-              {deixaNegativo && (
-                <p className="aviso mt-2">
-                  Isso é mais do que o estoque conhecido ({estoqueLocal} {produto.unidade}). Pode
-                  faltar lançar uma entrada — confira antes de confirmar.
-                </p>
-              )}
             </div>
 
             <div>
@@ -321,11 +363,44 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
         </p>
       )}
 
-      {produto && (
+      {/* Confirmação do que é estranho mas pode ser verdade. Fica entre o
+          formulário e o botão, no caminho do dedo, e diz o que está estranho
+          em vez de só perguntar "tem certeza?" — pergunta sem motivo é a que
+          todo mundo aprende a responder no automático. */}
+      {aConfirmar && (
+        <div className="aviso space-y-3">
+          <p className="font-semibold">Confira antes de gravar</p>
+          <ul className="list-disc space-y-1 pl-5">
+            {aConfirmar.map((a) => (
+              <li key={a.codigo}>{a.mensagem}</li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="botao-secundario font-semibold"
+              disabled={salvando}
+              onClick={gravar}
+            >
+              {salvando ? "Salvando..." : "Confirmar mesmo assim"}
+            </button>
+            <button
+              type="button"
+              className="botao-secundario"
+              disabled={salvando}
+              onClick={() => setAConfirmar(null)}
+            >
+              Corrigir
+            </button>
+          </div>
+        </div>
+      )}
+
+      {produto && !aConfirmar && (
         <div className="space-y-2">
           <button
             className="botao-grande text-base leading-snug"
-            onClick={confirmar}
+            onClick={tentarConfirmar}
             disabled={!podeConfirmar}
           >
             {salvando ? "Salvando..." : resumo()}

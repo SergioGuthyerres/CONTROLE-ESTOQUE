@@ -34,6 +34,44 @@ Este arquivo é o atalho. Para o "porquê" completo de cada decisão, ver
    diz onde o dinheiro está, não se a mercadoria saiu — ela saiu. Por isso
    nenhuma consulta de estoque olha para esse campo; só os relatórios olham.
 
+## Onde a validação mora, e por quê
+
+As travas de lançamento (venda com valor zero, fração em produto contado por
+unidade, quantidade ou valor fora do normal, lançamento repetido em poucos
+minutos) ficam **só no cliente**, em `frontend/src/lib/anomalias.ts`. O
+servidor **não recusa** nenhum desses casos.
+
+É decisão consciente, e tem dois motivos:
+
+1. **O sistema é privado.** São os donos e dois funcionários, num app que eles
+   abrem no celular. Ninguém vai montar requisição à mão, e proteger contra
+   isso não é o risco real aqui.
+2. **O custo de recusar no servidor é alto e concreto.** `POST
+   /movimentacoes/sync` valida o lote inteiro: um item recusado derruba os
+   outros 199 junto, e a fila daquele aparelho trava para sempre. Já
+   aconteceu neste projeto por outro caminho (ver o incidente dos atalhos de
+   produto). Dado ruim é pior que dado ausente, mas fila travada é pior que os
+   dois.
+
+O buraco que sobra é real e tem nome: **versão antiga em cache**. O PWA se
+publica sozinho a cada merge, mas o celular pode passar semanas com o bundle
+velho, e aquele aparelho continua gravando sem conhecer as regras novas da
+tela.
+
+A cobertura para isso é **contar, não recusar**: `backend/src/lib/anomalias.ts`
+(puro) + `services/anomaliaService.ts` varrem o período e devolvem o que
+parece errado dentro da resposta de `GET /relatorios/resumo-do-dia`, e o
+Resumo do Dia mostra. Ninguém é bloqueado, nenhuma fila trava, e o admin vê e
+corrige com estorno.
+
+**Se um dia o sistema deixar de ser privado**, esta decisão precisa ser
+revista junto — e aí o pré-requisito é a sincronização validar item a item em
+vez de lote inteiro.
+
+As anomalias vêm no corpo do resumo, e não numa rota nova, pelo mesmo motivo
+da regra 5 abaixo: rota nova chamada por um PWA que o servidor ainda não
+acompanha dá 404.
+
 ## Como as peças se conectam
 
 ```
@@ -81,6 +119,7 @@ variável de ambiente do backend.
 | Mudar a lista de devedores ou a baixa de fiado | `backend/src/lib/fiado.ts` (regra de "quem ainda deve", pura e testada) + `backend/src/routes/fiado.ts` + `frontend/src/pages/Devedores.tsx`. A baixa é um INSERT em `PagamentoFiado`, nunca um UPDATE na venda |
 | Mudar algo em venda fiado | `backend/src/lib/enums.ts` (`FORMAS_PAGAMENTO`, `ehVenda`) + `backend/src/lib/movimentacaoSchema.ts` + `backend/src/services/resumoService.ts` (separação à vista/fiado) + `frontend/src/lib/clientes.ts` (sugestão de nome) |
 | Adicionar um novo motivo de movimentação | `backend/src/lib/enums.ts` (`MOTIVOS_MOVIMENTACAO`, `MOTIVOS_POR_TIPO`) + espelhar em `frontend/src/lib/enums.ts` |
+| Mudar/acrescentar uma trava de lançamento | `frontend/src/lib/anomalias.ts` (bloqueio ou confirmação, puro e testado) + espelhar o contador em `backend/src/lib/anomalias.ts`, senão o Resumo do Dia não enxerga o caso vindo de app antigo |
 | Mudar uma cor, ou os temas claro/escuro | `frontend/src/index.css` (as variáveis dos DOIS temas) + `frontend/tailwind.config.js`, que mapeia os tons do Tailwind para elas. Nenhuma tela leva classe `dark:` — trocar `data-tema` no `<html>` repinta o app inteiro. Tom novo numa tela exige declará-lo nos dois temas |
 | Mudar o texto/aparência de uma tela | `frontend/src/pages/*.tsx` — estilo vem das classes utilitárias em `frontend/src/index.css` (`.botao-grande`, `.campo`, `.cartao`) |
 | Resumir vendas/compras de um período | `backend/src/services/resumoService.ts` + a regra de classificação em `backend/src/lib/gruposDeMovimentacao.ts` |

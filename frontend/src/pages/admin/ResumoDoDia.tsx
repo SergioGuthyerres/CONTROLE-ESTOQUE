@@ -26,10 +26,30 @@ interface GrupoResumido {
   linhas: LinhaDoResumo[];
 }
 
+interface MovimentacaoSuspeita {
+  id: string;
+  produtoNome: string;
+  motivo: string;
+  quantidade: number;
+  unidade: string;
+  valor: number;
+  criadoEm: string;
+  usuario: string;
+}
+
+interface GrupoDeAnomalia {
+  codigo: string;
+  descricao: string;
+  movimentacoes: MovimentacaoSuspeita[];
+}
+
 interface ResumoDoPeriodo {
   vendas: GrupoResumido;
   compras: GrupoResumido;
   outras: GrupoResumido;
+  // Ausente quando a API é mais antiga que esta versão do app — o PWA se
+  // publica sozinho a cada merge e o servidor nem sempre vai junto.
+  anomalias?: GrupoDeAnomalia[];
 }
 
 const reais = (valor: number) =>
@@ -149,6 +169,40 @@ export function ResumoDoDia() {
               </div>
             </div>
           </div>
+
+          {/* A trava de verdade está na tela de lançamento. Isto aqui é a
+              rede embaixo dela: o PWA se publica sozinho, mas o celular pode
+              ficar semanas com o bundle em cache, e um aparelho com versão
+              antiga continua gravando sem conhecer as regras novas. Não
+              recusa nada — mostra, para o admin corrigir com estorno.
+              Decisão registrada em docs/ARCHITECTURE.md. */}
+          {resumo.anomalias && resumo.anomalias.length > 0 && (
+            <div className="aviso space-y-3">
+              <p className="font-semibold">Lançamentos para conferir</p>
+              {resumo.anomalias.map((grupo) => (
+                <div key={grupo.codigo}>
+                  <p className="font-medium">
+                    {grupo.movimentacoes.length}{" "}
+                    {grupo.movimentacoes.length === 1 ? "lançamento" : "lançamentos"}{" "}
+                    {grupo.descricao}
+                  </p>
+                  <ul className="mt-1 space-y-1 text-xs">
+                    {grupo.movimentacoes.map((mov) => (
+                      <li key={`${grupo.codigo}-${mov.id}`}>
+                        {mov.produtoNome} · {mov.quantidade} {mov.unidade} ·{" "}
+                        {reais(mov.valor)} · {ROTULO_MOTIVO[mov.motivo as MotivoMovimentacao] ?? mov.motivo} ·{" "}
+                        {mov.usuario} · {new Date(mov.criadoEm).toLocaleString("pt-BR")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              <p className="text-xs">
+                Para corrigir, desfaça a movimentação no Histórico e lance de novo — nada aqui
+                é apagado.
+              </p>
+            </div>
+          )}
 
           <Grupo titulo="Vendas do dia" grupo={resumo.vendas} vazio="Nenhuma venda neste dia." />
           <Grupo

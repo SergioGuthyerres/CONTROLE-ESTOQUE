@@ -9,6 +9,8 @@
 ### Cadastros
 - **RF01** — Cadastrar, editar e listar Produto (nome, categoria, unidade — kg/L/un, estoque mínimo)
 - **RF02** — Cadastrar, editar e listar Categoria
+- **RF22** — Barrar lançamento inconsistente na tela: venda, compra ou devolução com valor R$ 0,00 (a mensagem orienta trocar o motivo para perda, uso interno ou ajuste de inventário) e quantidade quebrada em produto de unidade `un`. Exigir confirmação explícita, sem bloquear, quando a quantidade passar de 1000, o valor passar de R$ 5.000, a saída deixar o estoque negativo, ou houver lançamento idêntico nos últimos 2 minutos no mesmo aparelho
+- **RF23** — Listar no Resumo do Dia os lançamentos já gravados que caem nessas regras, para correção por estorno. É o que cobre um aparelho com versão antiga do app em cache
 - **RF21** — Remover um produto do cadastro, identificando-o sempre pelo **id**, nunca pelo nome (há nomes repetidos e parecidos). Antes de remover, o sistema conta os registros de estoque vinculados e mostra o número na confirmação. Produto **sem nenhuma movimentação** é apagado de verdade; produto **com histórico** é **arquivado** — some das telas de venda, compra e busca, e o histórico e os relatórios continuam íntegros. Arquivar é reversível
 
 ### Movimentação de estoque
