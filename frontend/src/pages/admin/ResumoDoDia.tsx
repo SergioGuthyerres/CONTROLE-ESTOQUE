@@ -165,8 +165,8 @@ export function ResumoDoDia() {
         </>
       )}
 
-      <Link to="/" className="botao-secundario inline-block text-center">
-        Sair
+      <Link to="/" className="botao-voltar block text-center">
+        Voltar ao início
       </Link>
     </div>
   );

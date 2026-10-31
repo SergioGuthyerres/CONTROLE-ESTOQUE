@@ -5,6 +5,7 @@ import { api, ErroApi } from "../lib/api";
 import { baixarCatalogo } from "../lib/sync";
 import { Link } from "react-router-dom";
 import { UNIDADES } from "../lib/enums";
+import { IconeConfirmado } from "../components/Icones";
 
 // O que o servidor responde em GET /produtos/:id/vinculos. A contagem e o
 // texto do aviso vêm de lá de propósito: a mesma regra que decide se apaga ou
@@ -46,14 +47,17 @@ export function CadastroProduto() {
   const [removendo, setRemovendo] = useState(false);
 
   const [arquivados, setArquivados] = useState<ProdutoArquivado[] | null>(null);
+  const [verArquivados, setVerArquivados] = useState(false);
 
   const categorias = useLiveQuery(() => db.categorias.orderBy("nome").toArray(), []);
   const produtos = useLiveQuery(() => db.produtos.orderBy("nome").toArray(), []);
 
   const termo = busca.trim().toLocaleLowerCase("pt-BR");
-  const encontrados = (produtos ?? []).filter((p) =>
-    termo ? p.nome.toLocaleLowerCase("pt-BR").includes(termo) : true,
-  );
+  const combina = (texto: string) =>
+    termo ? texto.toLocaleLowerCase("pt-BR").includes(termo) : true;
+
+  const emUso = (produtos ?? []).filter((p) => combina(p.nome));
+  const fora = (arquivados ?? []).filter((p) => combina(p.nome));
 
   // Cadastrar, remover e arquivar passam pelo servidor. Dizer isso antes do
   // toque evita a mensagem de erro depois — e o botão desabilitado com a
@@ -177,8 +181,8 @@ export function CadastroProduto() {
             Cadastrar categoria
           </Link>
         </div>
-        <Link to="/" className="botao-secundario inline-block text-center">
-          Voltar
+        <Link to="/" className="botao-voltar block text-center">
+          Voltar ao início
         </Link>
       </div>
     );
@@ -196,8 +200,12 @@ export function CadastroProduto() {
         </p>
       )}
       {sucesso && (
-        <p role="status" className="cartao border-green-200 bg-green-50 text-sm text-green-800">
-          {sucesso}
+        <p
+          role="status"
+          className="cartao flex items-center gap-3 border-green-200 bg-green-50 text-sm font-semibold text-green-800"
+        >
+          <IconeConfirmado className="h-5 w-5" />
+          <span>{sucesso}</span>
         </p>
       )}
       {!online && (
@@ -206,8 +214,8 @@ export function CadastroProduto() {
         </p>
       )}
 
-      <form onSubmit={aoEnviar} className="cartao space-y-3">
-        <h2 className="font-medium">Cadastrar produto</h2>
+      <form onSubmit={aoEnviar} className="cartao space-y-4">
+        <h2 className="font-semibold">Cadastrar produto</h2>
 
         <div>
           <label className="rotulo" htmlFor="produto-nome">
@@ -285,14 +293,14 @@ export function CadastroProduto() {
           {salvando ? "Salvando..." : "Cadastrar produto"}
         </button>
         {!podeSalvar && !salvando && online && (
-          <p className="dica">Preencha o nome e escolha a categoria para liberar o botão.</p>
+          <p className="dica text-center">
+            Preencha o nome e escolha a categoria para liberar o botão.
+          </p>
         )}
       </form>
 
-      <div className="cartao space-y-3">
-        <h2 className="font-medium">
-          Produtos cadastrados{produtos ? ` (${produtos.length})` : ""}
-        </h2>
+      <div className="cartao space-y-4">
+        <h2 className="font-semibold">Produtos cadastrados</h2>
 
         <div>
           <label className="rotulo" htmlFor="produto-busca">
@@ -307,118 +315,142 @@ export function CadastroProduto() {
           />
         </div>
 
-        {produtos === undefined && <p className="text-sm text-gray-500">Carregando...</p>}
-        {produtos && encontrados.length === 0 && (
-          <p className="text-sm text-gray-500">
-            {termo ? "Nenhum produto com esse nome." : "Nenhum produto cadastrado ainda."}
-          </p>
-        )}
-
-        <ul className="divide-y divide-gray-200">
-          {encontrados.map((produto) => (
-            <li key={produto.id} className="py-3 text-sm">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-medium break-words">{produto.nome}</div>
-                  <div className="text-xs text-gray-500">
-                    {produto.categoriaNome} · {produto.unidade} · estoque{" "}
-                    {produto.estoqueAtualServidor} {produto.unidade}
-                  </div>
-                </div>
-                {confirmando?.produtoId !== produto.id && (
-                  <button
-                    type="button"
-                    className="botao-secundario shrink-0 py-2 text-red-700 disabled:opacity-40"
-                    disabled={!online || confirmando !== null}
-                    onClick={() => pedirConfirmacao(produto)}
-                  >
-                    Remover
-                  </button>
-                )}
-              </div>
-
-              {/* A confirmação nasce colada no produto, e não num diálogo
-                  solto no meio da tela: assim não há dúvida sobre QUAL
-                  produto está prestes a sair. */}
-              {confirmando?.produtoId === produto.id && (
-                <div className="aviso mt-2 space-y-2">
-                  <p>{confirmando.aviso}</p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="botao-secundario py-2 font-semibold text-red-700"
-                      disabled={removendo}
-                      onClick={confirmarRemocao}
-                    >
-                      {removendo
-                        ? "Removendo..."
-                        : confirmando.acao === "excluir"
-                          ? "Apagar"
-                          : "Arquivar"}
-                    </button>
-                    <button
-                      type="button"
-                      className="botao-secundario py-2"
-                      disabled={removendo}
-                      onClick={() => setConfirmando(null)}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="cartao space-y-3">
-        <h2 className="font-medium">Arquivados</h2>
-        <p className="dica">
-          Produtos que saíram das telas de venda e compra. O histórico e os relatórios deles
-          continuam inteiros, e dá para trazer de volta a qualquer momento.
-        </p>
-
-        {arquivados === null ? (
+        {/* Arquivados como filtro da mesma lista, e não num cartão à parte:
+            são a mesma coisa vista de outro jeito, e empilhar um terceiro
+            bloco só fazia a tela crescer. */}
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="botao-secundario"
-            disabled={!online}
-            onClick={carregarArquivados}
+            className="chip"
+            aria-pressed={!verArquivados}
+            onClick={() => {
+              setVerArquivados(false);
+              setConfirmando(null);
+            }}
           >
-            Ver arquivados
+            Em uso{produtos ? ` (${produtos.length})` : ""}
           </button>
-        ) : arquivados.length === 0 ? (
-          <p className="text-sm text-gray-500">Nenhum produto arquivado.</p>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {arquivados.map((produto) => (
-              <li
-                key={produto.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
-              >
-                <div className="min-w-0">
-                  <div className="break-words">{produto.nome}</div>
-                  <div className="text-xs text-gray-500">
-                    {produto.categoria.nome} · {produto.unidade}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="botao-secundario shrink-0 py-2"
-                  disabled={!online}
-                  onClick={() => desarquivar(produto)}
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={verArquivados}
+            disabled={!online}
+            onClick={() => {
+              setVerArquivados(true);
+              setConfirmando(null);
+              if (arquivados === null) carregarArquivados();
+            }}
+          >
+            Arquivados{arquivados ? ` (${arquivados.length})` : ""}
+          </button>
+        </div>
+
+        {verArquivados ? (
+          <>
+            <p className="dica">
+              Produtos que saíram das telas de venda e compra. O histórico e os relatórios deles
+              continuam inteiros, e dá para trazer de volta a qualquer momento.
+            </p>
+            {arquivados === null && <p className="text-sm text-gray-500">Carregando...</p>}
+            {arquivados !== null && fora.length === 0 && (
+              <p className="text-sm text-gray-500">
+                {termo ? "Nenhum arquivado com esse nome." : "Nenhum produto arquivado."}
+              </p>
+            )}
+            <ul className="divide-y divide-gray-200">
+              {fora.map((produto) => (
+                <li
+                  key={produto.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
                 >
-                  Desarquivar
-                </button>
-              </li>
-            ))}
-          </ul>
+                  <div className="min-w-0">
+                    <div className="break-words font-medium">{produto.nome}</div>
+                    <div className="text-xs text-gray-500">
+                      {produto.categoria.nome} · {produto.unidade}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="botao-secundario shrink-0 py-2"
+                    disabled={!online}
+                    onClick={() => desarquivar(produto)}
+                  >
+                    Desarquivar
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <>
+            {produtos === undefined && <p className="text-sm text-gray-500">Carregando...</p>}
+            {produtos && emUso.length === 0 && (
+              <p className="text-sm text-gray-500">
+                {termo ? "Nenhum produto com esse nome." : "Nenhum produto cadastrado ainda."}
+              </p>
+            )}
+            <ul className="divide-y divide-gray-200">
+              {emUso.map((produto) => (
+                <li key={produto.id} className="py-3 text-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="break-words font-medium">{produto.nome}</div>
+                      <div className="text-xs text-gray-500">
+                        {produto.categoriaNome} · {produto.unidade} · estoque{" "}
+                        {produto.estoqueAtualServidor} {produto.unidade}
+                      </div>
+                    </div>
+                    {confirmando?.produtoId !== produto.id && (
+                      <button
+                        type="button"
+                        className="botao-secundario shrink-0 py-2 text-red-700 disabled:opacity-40"
+                        disabled={!online || confirmando !== null}
+                        onClick={() => pedirConfirmacao(produto)}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+
+                  {/* A confirmação nasce colada no produto, e não num diálogo
+                      solto no meio da tela: assim não há dúvida sobre QUAL
+                      produto está prestes a sair. */}
+                  {confirmando?.produtoId === produto.id && (
+                    <div className="aviso mt-2 space-y-2">
+                      <p>{confirmando.aviso}</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="botao-secundario py-2 font-semibold text-red-700"
+                          disabled={removendo}
+                          onClick={confirmarRemocao}
+                        >
+                          {removendo
+                            ? "Removendo..."
+                            : confirmando.acao === "excluir"
+                              ? "Apagar"
+                              : "Arquivar"}
+                        </button>
+                        <button
+                          type="button"
+                          className="botao-secundario py-2"
+                          disabled={removendo}
+                          onClick={() => setConfirmando(null)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
 
-      <Link to="/" className="botao-secundario inline-block text-center">
-        Voltar
+      <Link to="/" className="botao-voltar block text-center">
+        Voltar ao início
       </Link>
     </div>
   );

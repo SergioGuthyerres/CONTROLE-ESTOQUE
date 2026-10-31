@@ -193,8 +193,8 @@ export function Devedores() {
         );
       })}
 
-      <Link to="/" className="botao-secundario inline-block text-center">
-        Voltar
+      <Link to="/" className="botao-voltar block text-center">
+        Voltar ao início
       </Link>
     </div>
   );

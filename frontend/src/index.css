@@ -108,6 +108,29 @@
 /* RNF05: telas pensadas para toque em celular e baixa familiaridade
    digital — botões grandes por padrão, texto legível de longe. */
 @layer components {
+  /* Menu da tela inicial: uma linha por ação, largura cheia, ícone e texto
+     escrito por extenso. Antes eram botões de tamanhos diferentes numa
+     fileira que quebrava conforme a largura — o olho tinha de caçar onde
+     cada um começava, e a frequência de uso não aparecia em lugar nenhum.
+     Cada linha diz o que faz e o que tem lá dentro ("3 pessoas devendo
+     R$ 545,00"), então o menu responde parte das perguntas sem abrir nada. */
+  .menu-item {
+    @apply flex w-full items-center gap-4 rounded-2xl px-4 py-5 text-left
+      text-white active:scale-[0.99] transition;
+  }
+  .menu-item-destaque {
+    @apply py-8;
+  }
+  .menu-item-titulo {
+    @apply block text-xl font-bold leading-tight;
+  }
+  .menu-item-destaque .menu-item-titulo {
+    @apply text-3xl;
+  }
+  .menu-item-sub {
+    @apply block text-sm font-medium opacity-90;
+  }
+
   .botao-grande {
     @apply w-full rounded-xl px-6 py-5 text-xl font-semibold text-white
       bg-marca active:scale-[0.98] transition disabled:opacity-40;
@@ -132,10 +155,36 @@
       disabled:opacity-40;
   }
 
+  /* O que já está decidido no formulário. Verde porque é a resposta visual
+     de "deu certo, pode seguir" — a mesma do recado de sucesso. Sem isso, o
+     produto escolhido virava mais uma linha de texto no meio da tela e não
+     dava para saber, de relance, se a escolha tinha pegado. */
+  .selecionado {
+    @apply flex items-start justify-between gap-3 rounded-xl border
+      border-green-200 bg-green-50 p-3;
+  }
+
   /* Caixa de confirmação de coisa que não tem desfazer. O âmbar é o mesmo do
      histórico e da baixa de fiado: quem já viu uma reconhece a próxima. */
   .aviso {
     @apply rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm;
+  }
+
+  /* Filtro que alterna entre duas visões da MESMA lista. Arredondado e
+     pequeno de propósito: não é uma ação, é um estado — não pode parecer
+     botão de confirmar. */
+  .chip {
+    @apply rounded-full border border-gray-300 bg-superficie px-3.5 py-2
+      text-sm text-gray-600 disabled:opacity-40;
+  }
+  .chip[aria-pressed="true"] {
+    @apply border-transparent bg-marca font-semibold text-white;
+  }
+
+  .botao-voltar {
+    @apply w-full rounded-xl border border-gray-300 bg-superficie px-4 py-4
+      text-center text-base font-semibold text-gray-600 active:scale-[0.99]
+      transition;
   }
 
   .rotulo {

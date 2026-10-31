@@ -20,8 +20,7 @@ import { estoqueLocalDeProduto } from "../lib/estoque";
 // O título acompanha o MOTIVO, não o tipo. Antes a tela inicial dizia
 // "Registrar Venda" e a tela de destino dizia "Registrar Saída" — duas
 // palavras para a mesma coisa, e quem usa o sistema sem conhecer o modelo de
-// dados por dentro não tem como saber que são a mesma. Agora a tela se chama
-// pelo que está sendo feito: venda, perda, compra, devolução.
+// dados por dentro não tem como saber que são a mesma.
 function titulo(motivo: MotivoMovimentacao): string {
   return `Registrar ${ROTULO_MOTIVO[motivo]}`;
 }
@@ -72,8 +71,8 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   // deixar a pessoa adivinhar.
   function oQueFalta(): string | null {
     if (!produto) return "Escolha o produto.";
-    if (!quantidadeValida) return `Informe a quantidade em ${produto.unidade}.`;
-    if (fiado && cliente.trim().length < 2) return "Escreva o nome de quem levou fiado.";
+    if (!quantidadeValida) return `Falta dizer a quantidade em ${produto.unidade}.`;
+    if (fiado && cliente.trim().length < 2) return "Falta o nome de quem levou fiado.";
     return null;
   }
 
@@ -86,9 +85,9 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
   // resolve o mesmo problema — ninguém confirma no escuro.
   function resumo(): string {
     if (!produto || !quantidadeValida) return "Confirmar";
-    const quanto = `${quantidadeNumero} ${produto.unidade}`;
     const comoPago = ehVenda ? (fiado ? " fiado" : " à vista") : "";
-    return `Confirmar ${ROTULO_MOTIVO[motivo].toLocaleLowerCase("pt-BR")}${comoPago}: ${quanto} de ${produto.nome}`;
+    const acao = ROTULO_MOTIVO[motivo].toLocaleLowerCase("pt-BR");
+    return `Confirmar ${acao}${comoPago}: ${quantidadeNumero} ${produto.unidade} de ${produto.nome}`;
   }
 
   function escolherProduto(p: ProdutoLocal) {
@@ -156,30 +155,163 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
     <div className="space-y-4 pt-2">
       <h1 className="text-lg font-semibold">{titulo(motivo)}</h1>
 
-      {!produto && <BuscaProduto onEscolher={escolherProduto} tipo={tipo} />}
+      {!produto && (
+        <div className="cartao space-y-3">
+          <label className="rotulo">
+            1. Qual produto {tipo === "entrada" ? "chegou" : "saiu"}?
+          </label>
+          <BuscaProduto onEscolher={escolherProduto} tipo={tipo} />
+        </div>
+      )}
 
       {produto && (
-        <ProdutoEscolhido
-          produto={produto}
-          estoqueLocal={estoqueLocal}
-          onTrocar={() => setProduto(null)}
-          motivo={motivo}
-          onMotivoChange={setMotivo}
-          tipo={tipo}
-          quantidade={quantidade}
-          onQuantidadeChange={setQuantidade}
-          valor={valor}
-          onValorChange={setValor}
-          quantidadeGrande={quantidadeGrande}
-          deixaNegativo={deixaNegativo}
-          limite={limite}
-          ehVenda={ehVenda}
-          formaPagamento={formaPagamento}
-          onFormaPagamentoChange={setFormaPagamento}
-          cliente={cliente}
-          onClienteChange={setCliente}
-          clientes={clientes}
-        />
+        <>
+          {/* Passo concluído, em verde: dá para saber de relance que a
+              escolha pegou, e qual foi. */}
+          <div className="selecionado">
+            <span className="min-w-0">
+              <span className="block text-xs text-gray-500">1. Produto escolhido</span>
+              <span className="block font-semibold text-green-800 break-words">
+                {produto.nome}
+              </span>
+              <span className="block text-xs text-gray-500">
+                {produto.categoriaNome}
+                {estoqueLocal !== null &&
+                  ` · estoque conhecido: ${estoqueLocal} ${produto.unidade}`}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="botao-secundario shrink-0 py-2"
+              onClick={() => setProduto(null)}
+            >
+              Trocar
+            </button>
+          </div>
+
+          <div className="cartao space-y-4">
+            <div>
+              <label className="rotulo" htmlFor="mov-motivo">
+                2. Motivo
+              </label>
+              <select
+                id="mov-motivo"
+                className="campo"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value as MotivoMovimentacao)}
+              >
+                {MOTIVOS_POR_TIPO[tipo].map((opcao) => (
+                  <option key={opcao.valor} value={opcao.valor}>
+                    {opcao.rotulo}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="rotulo" htmlFor="mov-quantidade">
+                3. Quantidade em {produto.unidade}
+              </label>
+              <input
+                id="mov-quantidade"
+                className="campo"
+                inputMode="decimal"
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+                autoFocus
+              />
+              {quantidadeGrande && (
+                <p className="aviso mt-2">
+                  Quantidade acima de {limite}: vai precisar de internet para confirmar.
+                </p>
+              )}
+              {deixaNegativo && (
+                <p className="aviso mt-2">
+                  Isso é mais do que o estoque conhecido ({estoqueLocal} {produto.unidade}). Pode
+                  faltar lançar uma entrada — confira antes de confirmar.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="rotulo" htmlFor="mov-valor">
+                4. Valor total (R$)
+              </label>
+              <input
+                id="mov-valor"
+                className="campo"
+                inputMode="decimal"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                placeholder="0,00"
+              />
+              {/* Trocar total por preço unitário é o erro silencioso deste
+                  campo: o número entra, nada reclama, e o relatório do mês
+                  sai errado. */}
+              <p className="dica">
+                O valor da operação inteira, não o preço por {produto.unidade}.
+              </p>
+            </div>
+
+            {ehVenda && (
+              <div>
+                <label className="rotulo">5. Como foi pago?</label>
+                <div className="flex gap-2">
+                  {FORMAS_PAGAMENTO.map((opcao) => {
+                    const marcada = formaPagamento === opcao.valor;
+                    return (
+                      <button
+                        key={opcao.valor}
+                        type="button"
+                        aria-pressed={marcada}
+                        onClick={() => setFormaPagamento(opcao.valor)}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg border py-3.5 text-base ${
+                          marcada
+                            ? "border-transparent bg-marca font-bold text-white"
+                            : "border-gray-300 bg-superficie text-gray-700"
+                        }`}
+                      >
+                        {marcada && <span aria-hidden="true">✓</span>}
+                        {opcao.rotulo}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {fiado && (
+              <div>
+                <label className="rotulo" htmlFor="cliente">
+                  6. Quem levou
+                </label>
+                {/* datalist e não select: o nome é digitado no balcão, e
+                    obrigar cadastro de cliente antes da venda seria atrito na
+                    hora errada. A lista sugere quem já levou fiado antes,
+                    para o mesmo freguês não virar três nomes diferentes na
+                    lista de devedores. */}
+                <input
+                  id="cliente"
+                  className="campo"
+                  list="clientes-conhecidos"
+                  autoComplete="off"
+                  placeholder="Nome de quem levou"
+                  value={cliente}
+                  onChange={(e) => setCliente(e.target.value)}
+                />
+                <datalist id="clientes-conhecidos">
+                  {clientes.map((nome) => (
+                    <option key={nome} value={nome} />
+                  ))}
+                </datalist>
+                <p className="dica">
+                  Se já levou fiado antes, escolha o nome da lista — assim a dívida dele não
+                  aparece dividida em dois nomes parecidos.
+                </p>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {avisoEstoqueServidor && <p className="aviso">{avisoEstoqueServidor}</p>}
@@ -202,165 +334,9 @@ export function TelaMovimentacao({ tipo }: { tipo: TipoMovimentacao }) {
         </div>
       )}
 
-      <Link to="/" className="botao-secundario inline-block text-center">
-        Cancelar
+      <Link to="/" className="botao-voltar block text-center">
+        Voltar ao início
       </Link>
-    </div>
-  );
-}
-
-function ProdutoEscolhido(props: {
-  produto: ProdutoLocal;
-  estoqueLocal: number | null;
-  onTrocar: () => void;
-  motivo: MotivoMovimentacao;
-  onMotivoChange: (m: MotivoMovimentacao) => void;
-  tipo: TipoMovimentacao;
-  quantidade: string;
-  onQuantidadeChange: (v: string) => void;
-  valor: string;
-  onValorChange: (v: string) => void;
-  quantidadeGrande: boolean;
-  deixaNegativo: boolean;
-  limite: number;
-  ehVenda: boolean;
-  formaPagamento: FormaPagamento;
-  onFormaPagamentoChange: (f: FormaPagamento) => void;
-  cliente: string;
-  onClienteChange: (v: string) => void;
-  clientes: string[];
-}) {
-  return (
-    <div className="cartao space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="font-medium break-words">{props.produto.nome}</div>
-          <div className="text-sm text-gray-500">
-            {props.produto.categoriaNome}
-            {props.estoqueLocal !== null &&
-              ` · estoque conhecido: ${props.estoqueLocal} ${props.produto.unidade}`}
-          </div>
-        </div>
-        <button type="button" className="botao-secundario shrink-0 py-2" onClick={props.onTrocar}>
-          Trocar produto
-        </button>
-      </div>
-
-      <div>
-        <label className="rotulo" htmlFor="mov-motivo">
-          Motivo
-        </label>
-        <select
-          id="mov-motivo"
-          className="campo"
-          value={props.motivo}
-          onChange={(e) => props.onMotivoChange(e.target.value as MotivoMovimentacao)}
-        >
-          {MOTIVOS_POR_TIPO[props.tipo].map((opcao) => (
-            <option key={opcao.valor} value={opcao.valor}>
-              {opcao.rotulo}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="rotulo" htmlFor="mov-quantidade">
-          Quantidade em {props.produto.unidade}
-        </label>
-        <input
-          id="mov-quantidade"
-          className="campo"
-          inputMode="decimal"
-          value={props.quantidade}
-          onChange={(e) => props.onQuantidadeChange(e.target.value)}
-          autoFocus
-        />
-        {props.quantidadeGrande && (
-          <p className="dica text-amber-700">
-            Quantidade acima de {props.limite}: vai precisar de internet para confirmar.
-          </p>
-        )}
-        {props.deixaNegativo && (
-          <p className="dica text-amber-700">
-            Isso é mais do que o estoque conhecido ({props.estoqueLocal} {props.produto.unidade}).
-            Pode ser que falte lançar uma entrada — confira antes de confirmar.
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className="rotulo" htmlFor="mov-valor">
-          Valor total (R$)
-        </label>
-        <input
-          id="mov-valor"
-          className="campo"
-          inputMode="decimal"
-          value={props.valor}
-          onChange={(e) => props.onValorChange(e.target.value)}
-          placeholder="0,00"
-        />
-        {/* Trocar total por preço unitário é o erro silencioso deste campo:
-            o número entra, nada reclama, e o relatório do mês sai errado. */}
-        <p className="dica">
-          O valor da operação inteira, não o preço por {props.produto.unidade}. Pode deixar em
-          branco se não souber.
-        </p>
-      </div>
-
-      {props.ehVenda && (
-        <div>
-          <label className="rotulo">Pagamento</label>
-          <div className="flex gap-2">
-            {FORMAS_PAGAMENTO.map((opcao) => (
-              <button
-                key={opcao.valor}
-                type="button"
-                aria-pressed={props.formaPagamento === opcao.valor}
-                onClick={() => props.onFormaPagamentoChange(opcao.valor)}
-                className={`flex-1 rounded-lg border py-3 text-base ${
-                  props.formaPagamento === opcao.valor
-                    ? "border-transparent bg-marca font-semibold text-white"
-                    : "border-gray-300 bg-superficie text-gray-700"
-                }`}
-              >
-                {opcao.rotulo}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {props.ehVenda && props.formaPagamento === "fiado" && (
-        <div>
-          <label className="rotulo" htmlFor="cliente">
-            Quem levou
-          </label>
-          {/* datalist e não select: o nome é digitado no balcão, e obrigar
-              cadastro de cliente antes da venda seria atrito na hora errada.
-              A lista sugere quem já levou fiado antes, para o mesmo freguês
-              não virar três nomes diferentes na lista de devedores. */}
-          <input
-            id="cliente"
-            className="campo"
-            list="clientes-conhecidos"
-            autoComplete="off"
-            placeholder="Nome de quem levou"
-            value={props.cliente}
-            onChange={(e) => props.onClienteChange(e.target.value)}
-          />
-          <datalist id="clientes-conhecidos">
-            {props.clientes.map((nome) => (
-              <option key={nome} value={nome} />
-            ))}
-          </datalist>
-          <p className="dica">
-            Se já levou fiado antes, escolha o nome da lista — assim a dívida dele não aparece
-            dividida em dois nomes parecidos.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
