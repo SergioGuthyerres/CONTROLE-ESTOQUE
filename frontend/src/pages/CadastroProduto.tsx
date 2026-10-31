@@ -201,7 +201,7 @@ export function CadastroProduto() {
         </p>
       )}
       {!online && (
-        <p className="cartao border-gray-200 bg-gray-50 text-sm text-gray-600">
+        <p className="cartao border-gray-200 bg-fundo text-sm text-gray-600">
           Sem internet. Dá para consultar a lista, mas cadastrar e remover precisam de conexão.
         </p>
       )}

@@ -81,6 +81,7 @@ variável de ambiente do backend.
 | Mudar a lista de devedores ou a baixa de fiado | `backend/src/lib/fiado.ts` (regra de "quem ainda deve", pura e testada) + `backend/src/routes/fiado.ts` + `frontend/src/pages/Devedores.tsx`. A baixa é um INSERT em `PagamentoFiado`, nunca um UPDATE na venda |
 | Mudar algo em venda fiado | `backend/src/lib/enums.ts` (`FORMAS_PAGAMENTO`, `ehVenda`) + `backend/src/lib/movimentacaoSchema.ts` + `backend/src/services/resumoService.ts` (separação à vista/fiado) + `frontend/src/lib/clientes.ts` (sugestão de nome) |
 | Adicionar um novo motivo de movimentação | `backend/src/lib/enums.ts` (`MOTIVOS_MOVIMENTACAO`, `MOTIVOS_POR_TIPO`) + espelhar em `frontend/src/lib/enums.ts` |
+| Mudar uma cor, ou os temas claro/escuro | `frontend/src/index.css` (as variáveis dos DOIS temas) + `frontend/tailwind.config.js`, que mapeia os tons do Tailwind para elas. Nenhuma tela leva classe `dark:` — trocar `data-tema` no `<html>` repinta o app inteiro. Tom novo numa tela exige declará-lo nos dois temas |
 | Mudar o texto/aparência de uma tela | `frontend/src/pages/*.tsx` — estilo vem das classes utilitárias em `frontend/src/index.css` (`.botao-grande`, `.campo`, `.cartao`) |
 | Resumir vendas/compras de um período | `backend/src/services/resumoService.ts` + a regra de classificação em `backend/src/lib/gruposDeMovimentacao.ts` |
 | Mudar os atalhos de produto da tela de venda/compra | `frontend/src/lib/sugestoes.ts` (ordem) + `GET /produtos/mais-movimentados` (o que a loja inteira movimenta) |

@@ -143,7 +143,7 @@ export function Historico() {
                 className={`flex-1 py-2 rounded-lg text-sm border ${
                   tipo === opcao
                     ? "bg-marca text-white border-transparent"
-                    : "bg-white text-gray-700 border-gray-300"
+                    : "bg-superficie text-gray-700 border-gray-300"
                 }`}
               >
                 {opcao === "todos" ? "Todas" : ROTULO_TIPO[opcao]}
@@ -179,7 +179,7 @@ export function Historico() {
                 className={`flex-1 py-2 rounded-lg text-sm border ${
                   pagamento === opcao
                     ? "bg-marca text-white border-transparent"
-                    : "bg-white text-gray-700 border-gray-300"
+                    : "bg-superficie text-gray-700 border-gray-300"
                 }`}
               >
                 {opcao === "todos"
@@ -291,7 +291,7 @@ export function Historico() {
           </li>
         )}
       </ul>
-      <Link to="/" className="botao-medio block text-center bg-gray-700">
+      <Link to="/" className="botao-secundario inline-block text-center">
         Sair
       </Link>
     </div>

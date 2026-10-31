@@ -2,6 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Paleta dos dois temas.
+ *
+ * Os valores do tema claro são EXATAMENTE os tons padrão do Tailwind que o
+ * app já usava — a troca para variáveis não muda um pixel de quem está com o
+ * tema claro, que continua sendo o padrão. O tema escuro redefine os mesmos
+ * nomes, então toda tela acompanha sem ganhar uma classe sequer.
+ *
+ * Em RGB separado por espaço, e não em hex, porque é esse o formato que o
+ * `<alpha-value>` do Tailwind precisa para que `bg-marca/20` continue
+ * funcionando.
+ */
+@layer base {
+  :root {
+    --marca: 31 56 100; /* #1F3864 */
+
+    --superficie: 255 255 255;
+    --fundo: 249 250 251;
+
+    --venda: 185 28 28;
+    --compra: 21 128 61;
+    --fiado: 180 83 9;
+    --produtos: 109 40 217; /* violeta: precisa ser distinguível do âmbar do fiado */
+    --categorias: 29 78 216;
+
+    --cinza-50: 249 250 251;
+    --cinza-100: 243 244 246;
+    --cinza-200: 229 231 235;
+    --cinza-300: 209 213 219;
+    --cinza-400: 156 163 175;
+    --cinza-500: 107 114 128;
+    --cinza-600: 75 85 99;
+    --cinza-700: 55 65 81;
+
+    --vermelho-50: 254 242 242;
+    --vermelho-100: 254 226 226;
+    --vermelho-200: 254 202 202;
+    --vermelho-400: 248 113 113;
+    --vermelho-600: 220 38 38;
+    --vermelho-700: 185 28 28;
+
+    --verde-50: 240 253 244;
+    --verde-200: 187 247 208;
+    --verde-400: 74 222 128;
+    --verde-700: 21 128 61;
+    --verde-800: 22 101 52;
+
+    --ambar-50: 255 251 235;
+    --ambar-100: 254 243 199;
+    --ambar-200: 253 230 138;
+    --ambar-500: 245 158 11;
+    --ambar-700: 180 83 9;
+
+    color-scheme: light;
+  }
+
+  /* Azul escuro da casa. O neutro puxa para o azul da marca em vez de ser
+     cinza puro — cinza neutro sobre uma marca azul parece tema não acabado.
+     Os tons de cor (vermelho, verde, âmbar) clareiam: o mesmo vermelho que
+     lê bem sobre branco some sobre fundo escuro. */
+  :root[data-tema="escuro"] {
+    --marca: 45 74 133;
+
+    --superficie: 26 31 43;
+    --fundo: 14 19 32;
+
+    --venda: 155 42 36;
+    --compra: 26 110 59;
+    --fiado: 146 100 24;
+    --produtos: 91 63 160;
+    --categorias: 42 78 170;
+
+    --cinza-50: 14 19 32;
+    --cinza-100: 22 28 43;
+    --cinza-200: 42 51 70;
+    --cinza-300: 58 69 89;
+    --cinza-400: 108 122 145;
+    --cinza-500: 152 163 181;
+    --cinza-600: 178 187 201;
+    --cinza-700: 223 228 236;
+
+    --vermelho-50: 45 24 24;
+    --vermelho-100: 61 30 30;
+    --vermelho-200: 90 45 45;
+    --vermelho-400: 230 120 115;
+    --vermelho-600: 240 138 134;
+    --vermelho-700: 238 128 122;
+
+    --verde-50: 22 48 31;
+    --verde-200: 44 90 60;
+    --verde-400: 110 215 150;
+    --verde-700: 125 220 165;
+    --verde-800: 167 223 189;
+
+    --ambar-50: 45 38 22;
+    --ambar-100: 61 51 28;
+    --ambar-200: 87 74 36;
+    --ambar-500: 227 201 119;
+    --ambar-700: 227 185 109;
+
+    color-scheme: dark;
+  }
+}
+
 /* RNF05: telas pensadas para toque em celular e baixa familiaridade
    digital — botões grandes por padrão, texto legível de longe. */
 @layer components {
@@ -13,11 +116,11 @@
     @apply w-auto rounded-lg px-6 py-5 text-sm font-semibold text-white bg-marca active:scale-[0.98] transition disabled:opacity-40;
   }
   .campo {
-    @apply w-full rounded-lg border border-gray-300 px-4 py-3 text-lg
-      focus:outline-none focus:ring-2 focus:ring-marca;
+    @apply w-full rounded-lg border border-gray-300 bg-superficie px-4 py-3
+      text-lg focus:outline-none focus:ring-2 focus:ring-marca;
   }
   .cartao {
-    @apply rounded-xl border border-gray-200 p-4 shadow-sm bg-white;
+    @apply rounded-xl border border-gray-200 p-4 shadow-sm bg-superficie;
   }
 
   /* Ação que não é a principal da tela: some do caminho sem sumir da vista.
@@ -25,7 +128,7 @@
      acaso — e numa tela de estoque a escolha errada custa contagem errada. */
   .botao-secundario {
     @apply w-auto rounded-lg px-4 py-3 text-sm font-semibold text-gray-700
-      border border-gray-300 bg-white active:scale-[0.98] transition
+      border border-gray-300 bg-superficie active:scale-[0.98] transition
       disabled:opacity-40;
   }
 

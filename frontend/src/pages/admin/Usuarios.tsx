@@ -102,7 +102,7 @@ export function Usuarios() {
             não fica guardada no sistema. No primeiro acesso, o sistema vai exigir
             que ela escolha uma senha própria.
           </p>
-          <button className="botao-medio bg-gray-700" onClick={() => setSenhaMostrada(null)}>
+          <button className="botao-secundario" onClick={() => setSenhaMostrada(null)}>
             Já anotei
           </button>
         </div>
@@ -175,7 +175,7 @@ export function Usuarios() {
         ))}
       </ul>
 
-      <Link to="/" className="botao-medio block text-center bg-gray-700">
+      <Link to="/" className="botao-secundario inline-block text-center">
         Voltar
       </Link>
     </div>

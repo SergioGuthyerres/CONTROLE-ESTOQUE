@@ -322,7 +322,7 @@ function ProdutoEscolhido(props: {
                 className={`flex-1 rounded-lg border py-3 text-base ${
                   props.formaPagamento === opcao.valor
                     ? "border-transparent bg-marca font-semibold text-white"
-                    : "border-gray-300 bg-white text-gray-700"
+                    : "border-gray-300 bg-superficie text-gray-700"
                 }`}
               >
                 {opcao.rotulo}

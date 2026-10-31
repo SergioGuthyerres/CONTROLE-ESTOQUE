@@ -82,7 +82,7 @@ export function BuscaProduto({
               <button
                 key={produto.id}
                 type="button"
-                className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm text-left"
+                className="px-3 py-2 rounded-lg border border-gray-300 bg-superficie text-sm text-left"
                 onClick={() => onEscolher(produto)}
               >
                 {produto.nome}

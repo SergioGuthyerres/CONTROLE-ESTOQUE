@@ -174,7 +174,7 @@ export function Devedores() {
             {confirmando === null && (
               <button
                 type="button"
-                className="botao-medio w-full text-center bg-green-700"
+                className="botao-medio w-full text-center bg-compra"
                 onClick={() => setConfirmando(chave)}
               >
                 Dar baixa · {reais(devedor.total)}
@@ -193,7 +193,7 @@ export function Devedores() {
         );
       })}
 
-      <Link to="/" className="botao-medio block text-center bg-gray-700">
+      <Link to="/" className="botao-secundario inline-block text-center">
         Voltar
       </Link>
     </div>

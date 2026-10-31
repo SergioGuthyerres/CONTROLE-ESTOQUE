@@ -165,7 +165,7 @@ export function ResumoDoDia() {
         </>
       )}
 
-      <Link to="/" className="botao-medio block text-center bg-gray-700">
+      <Link to="/" className="botao-secundario inline-block text-center">
         Sair
       </Link>
     </div>

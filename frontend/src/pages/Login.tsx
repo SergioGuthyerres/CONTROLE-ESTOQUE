@@ -26,7 +26,7 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-fundo px-4">
       <form onSubmit={aoEnviar} className="w-full max-w-sm cartao space-y-4">
         <h1 className="text-xl font-semibold text-center">Casa do Campo — Estoque</h1>
 

@@ -48,7 +48,7 @@ export function Home() {
         </p>
       )}
 
-      <Link to="/saida" className="botao-grande block bg-red-700 text-center">
+      <Link to="/saida" className="botao-grande block bg-venda text-center">
         Registrar Venda
       </Link>
 
@@ -57,10 +57,10 @@ export function Home() {
           Movimentações
         </h2>
         <div className="flex flex-wrap gap-3">
-          <Link to="/entrada" className="botao-medio block bg-green-700 text-center">
+          <Link to="/entrada" className="botao-medio block bg-compra text-center">
             Registrar compra
           </Link>
-          <Link to="/fiado" className="botao-medio block bg-amber-700 text-center">
+          <Link to="/fiado" className="botao-medio block bg-fiado text-center">
             Fiado
           </Link>
         </div>
@@ -71,10 +71,10 @@ export function Home() {
           Cadastros
         </h2>
         <div className="flex flex-wrap gap-3">
-          <Link to="/produtos" className="botao-medio block bg-orange-700 text-center">
+          <Link to="/produtos" className="botao-medio block bg-produtos text-center">
             Produtos
           </Link>
-          <Link to="/categorias" className="botao-medio block bg-blue-700 text-center">
+          <Link to="/categorias" className="botao-medio block bg-categorias text-center">
             Categorias
           </Link>
         </div>
