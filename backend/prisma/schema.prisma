@@ -57,8 +57,21 @@ model Produto {
   criadoEm      DateTime       @default(now())
   movimentacoes Movimentacao[]
 
+  // Arquivar em vez de apagar. Estoque é a SOMA das movimentações (regra 1),
+  // então apagar um produto com histórico não "limpa o cadastro": reescreve
+  // relatórios de meses que já foram conferidos à mão, e quebra a auditoria
+  // do RF13. Pior: um celular com venda daquele produto na fila offline
+  // passaria a falhar na sincronização para sempre, travando a fila inteira.
+  //
+  // Preenchido = sumiu das telas de venda, compra e busca; o histórico e os
+  // relatórios continuam íntegros. Nulo = produto em uso. Produto que nunca
+  // teve movimentação nenhuma é apagado de verdade — não há o que preservar.
+  arquivadoEm DateTime?
+
   @@index([nome])
   @@index([categoriaId])
+  // "Os produtos em uso, em ordem de nome" é a consulta de toda tela de venda.
+  @@index([arquivadoEm, nome])
 }
 
 // Registro append-only: uma movimentação nunca é editada nem apagada.
@@ -102,8 +115,10 @@ model Movimentacao {
   formaPagamento String?
   cliente        String?
 
-  // Presente = esta venda fiado já foi paga. Ausente = ainda é dívida.
-  pagamentoFiado PagamentoFiado?
+  // Os pagamentos recebidos desta venda fiado. São vários porque o freguês
+  // pode pagar em partes (RF24); a dívida está quitada quando a soma deles
+  // cobre o valor da venda.
+  pagamentosFiado PagamentoFiado[]
 
   @@index([produtoId])
   @@index([criadoEm])
@@ -117,9 +132,21 @@ model Movimentacao {
 // que a loja precisa quando alguém contesta a cobrança — QUEM deu baixa e
 // QUANDO. Aqui essa resposta é uma linha nova, que ninguém sobrescreve.
 model PagamentoFiado {
-  id             String       @id @default(uuid())
-  movimentacaoId String       @unique
+  id String @id @default(uuid())
+
+  // SEM @unique, de propósito. A primeira versão amarrava um pagamento a cada
+  // dívida, e isso só servia para quem paga tudo de uma vez — que não é como
+  // o caderno de fiado funciona. O freguês aparece e deixa o que tem: R$ 50
+  // hoje, R$ 30 na semana que vem. Cada entrega dessas é uma linha nova aqui,
+  // e a dívida está quitada quando a soma das linhas cobre o valor da venda.
+  movimentacaoId String
   movimentacao   Movimentacao @relation(fields: [movimentacaoId], references: [id])
+
+  // Quanto deste pagamento foi para ESTA dívida. Um pagamento de R$ 50 que
+  // cobre uma dívida de R$ 30 e parte de outra de R$ 40 vira duas linhas:
+  // 30 e 20. Guardar assim mantém o relatório por venda funcionando e deixa
+  // claro, meses depois, o que foi pago de quê.
+  valor Decimal
 
   // Quem deu baixa — não é quem lançou a venda, e é justamente por isso que
   // este campo existe separado do usuarioId da movimentação.
@@ -133,6 +160,7 @@ model PagamentoFiado {
 
   criadoEm DateTime @default(now())
 
+  @@index([movimentacaoId])
   @@index([criadoEm])
   @@index([cliente])
 }

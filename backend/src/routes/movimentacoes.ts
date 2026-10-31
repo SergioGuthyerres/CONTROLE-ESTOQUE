@@ -138,7 +138,7 @@ movimentacoesRouter.post(
       where: { id: req.params.id },
       include: {
         estorno: { select: { id: true } },
-        pagamentoFiado: { select: { id: true } },
+        pagamentosFiado: { select: { id: true } },
       },
     });
 

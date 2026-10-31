@@ -70,14 +70,14 @@ test("movimentação já desfeita não pode ser desfeita de novo", () => {
   assert.throws(() => garantirQuePodeEstornar(jaEstornada), { status: 409 });
 });
 
-test("venda fiado já paga não pode ser desfeita", () => {
+test("venda fiado que já recebeu pagamento não pode ser desfeita", () => {
   // Desfazer apagaria a venda e deixaria o pagamento pendurado: a loja
   // ficaria com um recibo de um dinheiro que entrou por uma venda que o
   // sistema diz que nunca existiu.
   const paga = venda({
     formaPagamento: "fiado",
     cliente: "Dona Rita",
-    pagamentoFiado: { id: "pag-1" },
+    pagamentosFiado: [{ id: "pag-1" }],
   } as never);
 
   assert.throws(() => garantirQuePodeEstornar(paga), { status: 422 });

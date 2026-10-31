@@ -4,7 +4,13 @@ import { prisma } from "../lib/prisma";
 import { exigirAutenticacao } from "../middleware/auth";
 import { assincrono } from "../middleware/erros";
 import { ErroHttp } from "../lib/erroHttp";
-import { listarDevedores, type VendaFiado } from "../lib/fiado";
+import {
+  alocarPagamento,
+  chaveDoCliente,
+  listarDevedores,
+  totalEmAberto,
+  type VendaFiado,
+} from "../lib/fiado";
 
 export const fiadoRouter = Router();
 
@@ -28,7 +34,7 @@ fiadoRouter.get("/devedores", assincrono(async (_req, res) => {
       quantidade: true,
       produto: { select: { nome: true, unidade: true } },
       usuario: { select: { nome: true } },
-      pagamentoFiado: { select: { id: true } },
+      pagamentosFiado: { select: { valor: true } },
       estorno: { select: { id: true } },
     },
   });
@@ -42,7 +48,7 @@ fiadoRouter.get("/devedores", assincrono(async (_req, res) => {
     quantidade: Number(v.quantidade),
     unidade: v.produto.unidade,
     vendidoPor: v.usuario.nome,
-    pagamentoFiado: v.pagamentoFiado,
+    pago: v.pagamentosFiado.reduce((soma, p) => soma + Number(p.valor), 0),
     estorno: v.estorno,
   }));
 
@@ -52,73 +58,96 @@ fiadoRouter.get("/devedores", assincrono(async (_req, res) => {
   res.json({ devedores, total });
 }));
 
-// Um lote e não uma rota por dívida: quem paga costuma pagar tudo o que deve
-// de uma vez. Fazendo N requisições, uma falha no meio deixaria metade da
-// dívida baixada e metade não, e a tela não teria como explicar isso.
-const baixaSchema = z.object({
-  movimentacaoIds: z.array(z.string().min(1)).min(1).max(100),
+// Um pagamento é um valor entregue por uma pessoa, não uma dívida quitada.
+//
+// É a diferença entre o sistema e o caderno que ele substitui: no caderno o
+// freguês aparece e deixa o que tem. A rota recebe quanto ele pagou e espalha
+// pelas dívidas dele, da mais antiga para a mais nova (ver alocarPagamento em
+// lib/fiado.ts). Quem paga tudo é só o caso em que o valor bate com o total.
+const pagamentoSchema = z.object({
+  cliente: z.string().trim().min(2).max(80),
+  valor: z.number().positive().finite().max(1_000_000),
 });
 
-// Dar baixa NÃO altera a venda — grava um recibo novo (PagamentoFiado), pelo
-// mesmo motivo do estorno: Movimentacao é append-only. O que sai da lista de
-// devedores sai porque passou a existir um pagamento, não porque alguém
-// apagou a dívida.
-fiadoRouter.post("/baixas", assincrono(async (req, res) => {
-  const parse = baixaSchema.safeParse(req.body);
+fiadoRouter.post("/pagamentos", assincrono(async (req, res) => {
+  const parse = pagamentoSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
 
-  const ids = [...new Set(parse.data.movimentacaoIds)];
+  const { cliente, valor } = parse.data;
   const usuarioId = req.usuario!.usuarioId;
+  const chave = chaveDoCliente(cliente);
 
   const vendas = await prisma.movimentacao.findMany({
-    where: { id: { in: ids } },
+    where: { tipo: "saida", motivo: "venda", formaPagamento: "fiado" },
+    orderBy: { criadoEm: "asc" },
     select: {
       id: true,
-      tipo: true,
-      motivo: true,
-      formaPagamento: true,
       cliente: true,
-      pagamentoFiado: { select: { id: true } },
+      valor: true,
+      criadoEm: true,
+      quantidade: true,
+      produto: { select: { nome: true, unidade: true } },
+      usuario: { select: { nome: true } },
+      pagamentosFiado: { select: { valor: true } },
       estorno: { select: { id: true } },
     },
   });
 
-  if (vendas.length !== ids.length) {
-    throw new ErroHttp(404, "Uma das vendas não existe mais.");
+  const paraRegra: VendaFiado[] = vendas.map((v) => ({
+    id: v.id,
+    cliente: v.cliente,
+    valor: Number(v.valor),
+    criadoEm: v.criadoEm.toISOString(),
+    produtoNome: v.produto.nome,
+    quantidade: Number(v.quantidade),
+    unidade: v.produto.unidade,
+    vendidoPor: v.usuario.nome,
+    pago: v.pagamentosFiado.reduce((soma, p) => soma + Number(p.valor), 0),
+    estorno: v.estorno,
+  }));
+
+  // Só as dívidas DESTA pessoa, pela mesma chave normalizada que agrupa a
+  // lista de devedores — senão "Seu Antônio" pagaria e "seu antonio"
+  // continuaria devendo.
+  const devedor = listarDevedores(paraRegra).find((d) => chaveDoCliente(d.cliente) === chave);
+  if (!devedor) {
+    throw new ErroHttp(404, `${cliente} não tem nenhuma dívida em aberto.`);
   }
 
-  for (const venda of vendas) {
-    if (venda.formaPagamento !== "fiado" || venda.tipo !== "saida" || venda.motivo !== "venda") {
-      throw new ErroHttp(422, "Só venda fiado pode receber baixa.");
-    }
-    if (venda.estorno) {
-      throw new ErroHttp(422, "Esta venda foi desfeita e não é mais uma dívida.");
-    }
-    // Dois aparelhos podem estar na tela de devedores ao mesmo tempo. Além
-    // desta checagem, o @unique da tabela é quem garante de verdade.
-    if (venda.pagamentoFiado) {
-      throw new ErroHttp(409, "Esta dívida já foi baixada por outra pessoa.");
-    }
-    if (!venda.cliente?.trim()) {
-      throw new ErroHttp(422, "Esta venda fiado está sem o nome do devedor.");
-    }
+  const emAberto = totalEmAberto(devedor.dividas);
+  if (valor > emAberto) {
+    // Receber mais do que a pessoa deve é um número digitado errado virando
+    // crédito invisível: não existe lugar no modelo para "a loja deve ao
+    // freguês", então o excedente simplesmente sumiria.
+    throw new ErroHttp(
+      422,
+      `${devedor.cliente} deve ${emAberto.toFixed(2)} e o pagamento é de ${valor.toFixed(2)}. Confira o valor.`,
+    );
   }
 
-  const pagamentos = await prisma.$transaction(
-    vendas.map((venda) =>
+  const parcelas = alocarPagamento(devedor.dividas, valor);
+
+  const criados = await prisma.$transaction(
+    parcelas.map((parcela) =>
       prisma.pagamentoFiado.create({
         data: {
-          movimentacaoId: venda.id,
+          movimentacaoId: parcela.movimentacaoId,
           usuarioId,
           // O nome vai copiado: o recibo precisa dizer de quem era a dívida
           // mesmo que a venda seja consultada por outro caminho depois.
-          cliente: venda.cliente!.trim(),
+          cliente: devedor.cliente,
+          valor: parcela.valor,
         },
       }),
     ),
   );
 
-  res.status(201).json({ baixadas: pagamentos.length });
+  res.status(201).json({
+    cliente: devedor.cliente,
+    pago: valor,
+    restante: Math.round((emAberto - valor) * 100) / 100,
+    dividasAfetadas: criados.length,
+  });
 }));
 
 // Auditoria: quem deu baixa em quê, e quando. É a resposta para "eu já paguei
@@ -130,6 +159,7 @@ fiadoRouter.get("/baixas", assincrono(async (_req, res) => {
     select: {
       id: true,
       cliente: true,
+      valor: true,
       criadoEm: true,
       usuario: { select: { nome: true } },
       movimentacao: {
@@ -149,7 +179,8 @@ fiadoRouter.get("/baixas", assincrono(async (_req, res) => {
       cliente: p.cliente,
       criadoEm: p.criadoEm.toISOString(),
       baixadaPor: p.usuario.nome,
-      valor: Number(p.movimentacao.valor),
+      valor: Number(p.valor),
+      valorDaVenda: Number(p.movimentacao.valor),
       produtoNome: p.movimentacao.produto.nome,
       vendaEm: p.movimentacao.criadoEm.toISOString(),
     })),

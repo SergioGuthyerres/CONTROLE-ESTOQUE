@@ -102,7 +102,7 @@ export function Usuarios() {
             não fica guardada no sistema. No primeiro acesso, o sistema vai exigir
             que ela escolha uma senha própria.
           </p>
-          <button className="botao-medio bg-gray-700" onClick={() => setSenhaMostrada(null)}>
+          <button className="botao-secundario" onClick={() => setSenhaMostrada(null)}>
             Já anotei
           </button>
         </div>
@@ -111,7 +111,7 @@ export function Usuarios() {
       <form onSubmit={criar} className="cartao space-y-3">
         <h2 className="font-semibold text-sm">Novo usuário</h2>
         <div>
-          <label className="block text-sm mb-1" htmlFor="novo-nome">
+          <label className="rotulo" htmlFor="novo-nome">
             Nome de usuário
           </label>
           <input
@@ -124,7 +124,7 @@ export function Usuarios() {
           />
         </div>
         <div>
-          <label className="block text-sm mb-1" htmlFor="novo-perfil">
+          <label className="rotulo" htmlFor="novo-perfil">
             Perfil
           </label>
           <select
@@ -175,8 +175,8 @@ export function Usuarios() {
         ))}
       </ul>
 
-      <Link to="/" className="botao-medio block text-center bg-gray-700">
-        Voltar
+      <Link to="/" className="botao-voltar block text-center">
+        Voltar ao início
       </Link>
     </div>
   );

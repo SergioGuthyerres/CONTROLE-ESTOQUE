@@ -133,7 +133,7 @@ export function Historico() {
 
       <div className="cartao space-y-3">
         <div>
-          <label className="block text-sm mb-1">Tipo</label>
+          <label className="rotulo">Tipo</label>
           <div className="flex gap-2">
             {(["todos", "entrada", "saida"] as FiltroTipo[]).map((opcao) => (
               <button
@@ -143,7 +143,7 @@ export function Historico() {
                 className={`flex-1 py-2 rounded-lg text-sm border ${
                   tipo === opcao
                     ? "bg-marca text-white border-transparent"
-                    : "bg-white text-gray-700 border-gray-300"
+                    : "bg-superficie text-gray-700 border-gray-300"
                 }`}
               >
                 {opcao === "todos" ? "Todas" : ROTULO_TIPO[opcao]}
@@ -153,7 +153,7 @@ export function Historico() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1">Motivo</label>
+          <label className="rotulo">Motivo</label>
           <select
             className="campo"
             value={motivo}
@@ -169,7 +169,7 @@ export function Historico() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1">Pagamento</label>
+          <label className="rotulo">Pagamento</label>
           <div className="flex gap-2">
             {(["todos", "a_vista", "fiado"] as FiltroPagamento[]).map((opcao) => (
               <button
@@ -179,7 +179,7 @@ export function Historico() {
                 className={`flex-1 py-2 rounded-lg text-sm border ${
                   pagamento === opcao
                     ? "bg-marca text-white border-transparent"
-                    : "bg-white text-gray-700 border-gray-300"
+                    : "bg-superficie text-gray-700 border-gray-300"
                 }`}
               >
                 {opcao === "todos"
@@ -291,8 +291,8 @@ export function Historico() {
           </li>
         )}
       </ul>
-      <Link to="/" className="botao-medio block text-center bg-gray-700">
-        Sair
+      <Link to="/" className="botao-voltar block text-center">
+        Voltar ao início
       </Link>
     </div>
   );

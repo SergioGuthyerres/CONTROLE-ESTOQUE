@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth, type Usuario } from "../lib/auth";
 import { api, ErroApi } from "../lib/api";
 import { baixarCatalogo } from "../lib/sync";
@@ -56,7 +56,7 @@ export function TrocarSenha() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-fundo px-4">
       <form onSubmit={aoEnviar} className="w-full max-w-sm cartao space-y-4">
         <h1 className="text-xl font-semibold text-center">Trocar senha</h1>
 
@@ -68,7 +68,7 @@ export function TrocarSenha() {
         )}
 
         <div>
-          <label className="block text-sm mb-1" htmlFor="senha-atual">
+          <label className="rotulo" htmlFor="senha-atual">
             Senha atual
           </label>
           <input
@@ -84,7 +84,7 @@ export function TrocarSenha() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1" htmlFor="senha-nova">
+          <label className="rotulo" htmlFor="senha-nova">
             Senha nova
           </label>
           <input
@@ -104,7 +104,7 @@ export function TrocarSenha() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1" htmlFor="senha-confirmacao">
+          <label className="rotulo" htmlFor="senha-confirmacao">
             Repita a senha nova
           </label>
           <input
@@ -123,6 +123,16 @@ export function TrocarSenha() {
         <button type="submit" className="botao-grande" disabled={enviando}>
           {enviando ? "Salvando..." : "Salvar nova senha"}
         </button>
+
+        {/* Sem saída quando a troca é obrigatória: com senha provisória o
+            servidor responde 403 em todas as outras rotas, então um "Voltar"
+            levaria a uma tela que não carrega. Quem entrou aqui pelo menu,
+            por outro lado, ficava preso — era o bug. */}
+        {!obrigatoria && (
+          <Link to="/" className="botao-voltar block text-center">
+            Voltar ao início
+          </Link>
+        )}
 
         <p className="text-xs text-gray-500 text-center">
           Ao trocar a senha, o acesso é encerrado nos outros aparelhos.

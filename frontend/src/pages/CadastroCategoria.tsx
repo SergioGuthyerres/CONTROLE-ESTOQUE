@@ -67,8 +67,8 @@ export function CadastroCategoria() {
           </li>
         ))}
       </ul>
-      <Link to="/" className="botao-medio block text-center bg-gray-700">
-        Sair
+      <Link to="/" className="botao-voltar block text-center">
+        Voltar ao início
       </Link>
     </div>
   );

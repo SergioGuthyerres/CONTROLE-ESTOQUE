@@ -2,9 +2,135 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Paleta dos dois temas.
+ *
+ * Os valores do tema claro são EXATAMENTE os tons padrão do Tailwind que o
+ * app já usava — a troca para variáveis não muda um pixel de quem está com o
+ * tema claro, que continua sendo o padrão. O tema escuro redefine os mesmos
+ * nomes, então toda tela acompanha sem ganhar uma classe sequer.
+ *
+ * Em RGB separado por espaço, e não em hex, porque é esse o formato que o
+ * `<alpha-value>` do Tailwind precisa para que `bg-marca/20` continue
+ * funcionando.
+ */
+@layer base {
+  :root {
+    --marca: 31 56 100; /* #1F3864 */
+
+    --superficie: 255 255 255;
+    --fundo: 249 250 251;
+
+    --venda: 185 28 28;
+    --compra: 21 128 61;
+    --fiado: 180 83 9;
+    --produtos: 109 40 217; /* violeta: precisa ser distinguível do âmbar do fiado */
+    --categorias: 29 78 216;
+
+    --cinza-50: 249 250 251;
+    --cinza-100: 243 244 246;
+    --cinza-200: 229 231 235;
+    --cinza-300: 209 213 219;
+    --cinza-400: 156 163 175;
+    --cinza-500: 107 114 128;
+    --cinza-600: 75 85 99;
+    --cinza-700: 55 65 81;
+
+    --vermelho-50: 254 242 242;
+    --vermelho-100: 254 226 226;
+    --vermelho-200: 254 202 202;
+    --vermelho-400: 248 113 113;
+    --vermelho-600: 220 38 38;
+    --vermelho-700: 185 28 28;
+
+    --verde-50: 240 253 244;
+    --verde-200: 187 247 208;
+    --verde-400: 74 222 128;
+    --verde-700: 21 128 61;
+    --verde-800: 22 101 52;
+
+    --ambar-50: 255 251 235;
+    --ambar-100: 254 243 199;
+    --ambar-200: 253 230 138;
+    --ambar-500: 245 158 11;
+    --ambar-700: 180 83 9;
+
+    color-scheme: light;
+  }
+
+  /* Azul escuro da casa. O neutro puxa para o azul da marca em vez de ser
+     cinza puro — cinza neutro sobre uma marca azul parece tema não acabado.
+     Os tons de cor (vermelho, verde, âmbar) clareiam: o mesmo vermelho que
+     lê bem sobre branco some sobre fundo escuro. */
+  :root[data-tema="escuro"] {
+    --marca: 45 74 133;
+
+    --superficie: 26 31 43;
+    --fundo: 14 19 32;
+
+    --venda: 155 42 36;
+    --compra: 26 110 59;
+    --fiado: 146 100 24;
+    --produtos: 91 63 160;
+    --categorias: 42 78 170;
+
+    --cinza-50: 14 19 32;
+    --cinza-100: 22 28 43;
+    --cinza-200: 42 51 70;
+    --cinza-300: 58 69 89;
+    --cinza-400: 108 122 145;
+    --cinza-500: 152 163 181;
+    --cinza-600: 178 187 201;
+    --cinza-700: 223 228 236;
+
+    --vermelho-50: 45 24 24;
+    --vermelho-100: 61 30 30;
+    --vermelho-200: 90 45 45;
+    --vermelho-400: 230 120 115;
+    --vermelho-600: 240 138 134;
+    --vermelho-700: 238 128 122;
+
+    --verde-50: 22 48 31;
+    --verde-200: 44 90 60;
+    --verde-400: 110 215 150;
+    --verde-700: 125 220 165;
+    --verde-800: 167 223 189;
+
+    --ambar-50: 45 38 22;
+    --ambar-100: 61 51 28;
+    --ambar-200: 87 74 36;
+    --ambar-500: 227 201 119;
+    --ambar-700: 227 185 109;
+
+    color-scheme: dark;
+  }
+}
+
 /* RNF05: telas pensadas para toque em celular e baixa familiaridade
    digital — botões grandes por padrão, texto legível de longe. */
 @layer components {
+  /* Menu da tela inicial: uma linha por ação, largura cheia, ícone e texto
+     escrito por extenso. Antes eram botões de tamanhos diferentes numa
+     fileira que quebrava conforme a largura — o olho tinha de caçar onde
+     cada um começava, e a frequência de uso não aparecia em lugar nenhum.
+     Cada linha diz o que faz e o que tem lá dentro ("3 pessoas devendo
+     R$ 545,00"), então o menu responde parte das perguntas sem abrir nada. */
+  .menu-item {
+    @apply flex w-full items-center gap-4 rounded-2xl px-4 py-5 text-left
+      text-white active:scale-[0.99] transition;
+  }
+  .menu-item-destaque {
+    @apply py-8;
+  }
+  .menu-item-titulo {
+    @apply block text-xl font-bold leading-tight;
+  }
+  .menu-item-destaque .menu-item-titulo {
+    @apply text-3xl;
+  }
+  .menu-item-sub {
+    @apply block text-sm font-medium opacity-90;
+  }
+
   .botao-grande {
     @apply w-full rounded-xl px-6 py-5 text-xl font-semibold text-white
       bg-marca active:scale-[0.98] transition disabled:opacity-40;
@@ -13,10 +139,61 @@
     @apply w-auto rounded-lg px-6 py-5 text-sm font-semibold text-white bg-marca active:scale-[0.98] transition disabled:opacity-40;
   }
   .campo {
-    @apply w-full rounded-lg border border-gray-300 px-4 py-3 text-lg
-      focus:outline-none focus:ring-2 focus:ring-marca;
+    @apply w-full rounded-lg border border-gray-300 bg-superficie px-4 py-3
+      text-lg focus:outline-none focus:ring-2 focus:ring-marca;
   }
   .cartao {
-    @apply rounded-xl border border-gray-200 p-4 shadow-sm bg-white;
+    @apply rounded-xl border border-gray-200 p-4 shadow-sm bg-superficie;
+  }
+
+  /* Ação que não é a principal da tela: some do caminho sem sumir da vista.
+     Usar o mesmo peso visual do botão principal faria o olho escolher ao
+     acaso — e numa tela de estoque a escolha errada custa contagem errada. */
+  .botao-secundario {
+    @apply w-auto rounded-lg px-4 py-3 text-sm font-semibold text-gray-700
+      border border-gray-300 bg-superficie active:scale-[0.98] transition
+      disabled:opacity-40;
+  }
+
+  /* O que já está decidido no formulário. Verde porque é a resposta visual
+     de "deu certo, pode seguir" — a mesma do recado de sucesso. Sem isso, o
+     produto escolhido virava mais uma linha de texto no meio da tela e não
+     dava para saber, de relance, se a escolha tinha pegado. */
+  .selecionado {
+    @apply flex items-start justify-between gap-3 rounded-xl border
+      border-green-200 bg-green-50 p-3;
+  }
+
+  /* Caixa de confirmação de coisa que não tem desfazer. O âmbar é o mesmo do
+     histórico e da baixa de fiado: quem já viu uma reconhece a próxima. */
+  .aviso {
+    @apply rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm;
+  }
+
+  /* Filtro que alterna entre duas visões da MESMA lista. Arredondado e
+     pequeno de propósito: não é uma ação, é um estado — não pode parecer
+     botão de confirmar. */
+  .chip {
+    @apply rounded-full border border-gray-300 bg-superficie px-3.5 py-2
+      text-sm text-gray-600 disabled:opacity-40;
+  }
+  .chip[aria-pressed="true"] {
+    @apply border-transparent bg-marca font-semibold text-white;
+  }
+
+  .botao-voltar {
+    @apply w-full rounded-xl border border-gray-300 bg-superficie px-4 py-4
+      text-center text-base font-semibold text-gray-600 active:scale-[0.99]
+      transition;
+  }
+
+  .rotulo {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Explicação curta embaixo do campo. Existe para a pessoa não precisar
+     adivinhar o que o campo espera — RNF05, baixa familiaridade digital. */
+  .dica {
+    @apply mt-1 text-xs text-gray-500;
   }
 }

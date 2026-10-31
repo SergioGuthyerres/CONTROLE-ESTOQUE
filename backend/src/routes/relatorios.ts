@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { exigirAutenticacao, exigirPerfil } from "../middleware/auth";
 import { calcularValorTotalEstoque } from "../services/stockService";
 import { assincrono } from "../middleware/erros";
+import { anomaliasDoPeriodo } from "../services/anomaliaService";
 import { resumirPeriodo } from "../services/resumoService";
 import { montarRelatorioPorProduto } from "../lib/agregacaoMovimentacao";
 import type { MotivoMovimentacao, TipoMovimentacao } from "../lib/enums";
@@ -96,7 +97,19 @@ relatoriosRouter.get("/resumo-do-dia", assincrono(async (req, res) => {
   const parse = periodoSchema.safeParse(req.query);
   if (!parse.success) return res.status(400).json({ erro: parse.error.flatten() });
 
-  res.json(await resumirPeriodo(parse.data.dataInicio, parse.data.dataFim));
+  const { dataInicio, dataFim } = parse.data;
+
+  // As anomalias vêm no MESMO corpo, e não numa rota nova, de propósito: rota
+  // nova chamada por um PWA que o servidor ainda não acompanha dá 404, e foi
+  // assim que o catálogo caiu em agosto. Campo a mais numa resposta que já
+  // existe é ignorado por app antigo e tratado como ausente por app novo
+  // contra API antiga.
+  const [resumo, anomalias] = await Promise.all([
+    resumirPeriodo(dataInicio, dataFim),
+    anomaliasDoPeriodo(dataInicio, dataFim),
+  ]);
+
+  res.json({ ...resumo, anomalias });
 }));
 
 // RF12: valor total em estoque, por produto e consolidado.

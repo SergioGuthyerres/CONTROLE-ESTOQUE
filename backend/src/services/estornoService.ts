@@ -34,8 +34,8 @@ export interface MovimentacaoParaEstornar {
   // Preenchido pelo `include` da rota: se já existe, esta movimentação já foi
   // desfeita uma vez.
   estorno?: { id: string } | null;
-  // Idem: se existe, esta venda fiado já foi paga.
-  pagamentoFiado?: { id: string } | null;
+  // Idem: pagamentos já recebidos desta venda fiado, inteiros ou em partes.
+  pagamentosFiado?: { id: string }[];
 }
 
 export interface DadosDoEstorno {
@@ -67,15 +67,16 @@ export function garantirQuePodeEstornar(original: MovimentacaoParaEstornar): voi
     throw new ErroHttp(409, "Esta movimentação já foi desfeita.");
   }
 
-  // Desfazer uma venda fiado que já foi paga apagaria a venda e deixaria o
-  // pagamento pendurado: a loja ficaria com um recibo de um dinheiro que
-  // entrou por uma venda que o sistema diz que nunca existiu. Se o problema é
-  // que a venda estava errada, o caminho é devolver o dinheiro e registrar
-  // isso — não fingir que a venda não aconteceu.
-  if (original.pagamentoFiado) {
+  // Desfazer uma venda fiado que já recebeu pagamento apagaria a venda e
+  // deixaria o dinheiro pendurado: a loja ficaria com um recibo de um valor
+  // que entrou por uma venda que o sistema diz que nunca existiu. Vale
+  // inclusive para pagamento parcial — por menos que seja, o problema é o
+  // mesmo. Se a venda estava errada, o caminho é devolver o dinheiro e
+  // registrar isso, não fingir que ela não aconteceu.
+  if (original.pagamentosFiado && original.pagamentosFiado.length > 0) {
     throw new ErroHttp(
       422,
-      "Esta venda fiado já foi paga. Desfazer apagaria a venda e deixaria o pagamento sem origem.",
+      "Esta venda fiado já recebeu pagamento. Desfazer apagaria a venda e deixaria o dinheiro sem origem.",
     );
   }
 }
