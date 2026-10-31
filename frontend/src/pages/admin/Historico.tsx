@@ -133,7 +133,7 @@ export function Historico() {
 
       <div className="cartao space-y-3">
         <div>
-          <label className="block text-sm mb-1">Tipo</label>
+          <label className="rotulo">Tipo</label>
           <div className="flex gap-2">
             {(["todos", "entrada", "saida"] as FiltroTipo[]).map((opcao) => (
               <button
@@ -153,7 +153,7 @@ export function Historico() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1">Motivo</label>
+          <label className="rotulo">Motivo</label>
           <select
             className="campo"
             value={motivo}
@@ -169,7 +169,7 @@ export function Historico() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1">Pagamento</label>
+          <label className="rotulo">Pagamento</label>
           <div className="flex gap-2">
             {(["todos", "a_vista", "fiado"] as FiltroPagamento[]).map((opcao) => (
               <button

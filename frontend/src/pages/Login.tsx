@@ -31,7 +31,7 @@ export function Login() {
         <h1 className="text-xl font-semibold text-center">Casa do Campo — Estoque</h1>
 
         <div>
-          <label className="block text-sm mb-1" htmlFor="nome">
+          <label className="rotulo" htmlFor="nome">
             Usuário
           </label>
           <input
@@ -45,7 +45,7 @@ export function Login() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1" htmlFor="senha">
+          <label className="rotulo" htmlFor="senha">
             Senha
           </label>
           <input

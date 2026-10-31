@@ -68,7 +68,7 @@ export function TrocarSenha() {
         )}
 
         <div>
-          <label className="block text-sm mb-1" htmlFor="senha-atual">
+          <label className="rotulo" htmlFor="senha-atual">
             Senha atual
           </label>
           <input
@@ -84,7 +84,7 @@ export function TrocarSenha() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1" htmlFor="senha-nova">
+          <label className="rotulo" htmlFor="senha-nova">
             Senha nova
           </label>
           <input
@@ -104,7 +104,7 @@ export function TrocarSenha() {
         </div>
 
         <div>
-          <label className="block text-sm mb-1" htmlFor="senha-confirmacao">
+          <label className="rotulo" htmlFor="senha-confirmacao">
             Repita a senha nova
           </label>
           <input

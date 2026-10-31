@@ -111,7 +111,7 @@ export function Usuarios() {
       <form onSubmit={criar} className="cartao space-y-3">
         <h2 className="font-semibold text-sm">Novo usuário</h2>
         <div>
-          <label className="block text-sm mb-1" htmlFor="novo-nome">
+          <label className="rotulo" htmlFor="novo-nome">
             Nome de usuário
           </label>
           <input
@@ -124,7 +124,7 @@ export function Usuarios() {
           />
         </div>
         <div>
-          <label className="block text-sm mb-1" htmlFor="novo-perfil">
+          <label className="rotulo" htmlFor="novo-perfil">
             Perfil
           </label>
           <select

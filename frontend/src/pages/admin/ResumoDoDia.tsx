@@ -234,7 +234,7 @@ function Grupo(props: {
 }) {
   return (
     <div className="cartao">
-      <div className="font-medium mb-2">{props.titulo}</div>
+      <div className="font-semibold mb-2">{props.titulo}</div>
       {props.grupo.linhas.length === 0 && <p className="text-sm text-gray-500">{props.vazio}</p>}
       <ul className="divide-y divide-gray-200">
         {props.grupo.linhas.map((linha) => (

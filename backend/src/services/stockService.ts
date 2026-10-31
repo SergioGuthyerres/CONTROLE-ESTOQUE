@@ -83,17 +83,28 @@ export async function calcularValorTotalEstoque() {
     custoMedioPorProduto[linha.produtoId] = quantidade > 0 ? valor / quantidade : 0;
   }
 
-  const linhas = produtos.map((produto) => {
-    const estoqueAtual = estoquePorProduto[produto.id] ?? 0;
-    const custoMedioUnitario = custoMedioPorProduto[produto.id] ?? 0;
-    return {
-      produtoId: produto.id,
-      produtoNome: produto.nome,
-      estoqueAtual,
-      custoMedioUnitario,
-      valorEstoque: estoqueAtual * custoMedioUnitario,
-    };
-  });
+  const linhas = produtos
+    .map((produto) => {
+      const estoqueAtual = estoquePorProduto[produto.id] ?? 0;
+      const custoMedioUnitario = custoMedioPorProduto[produto.id] ?? 0;
+      return {
+        produtoId: produto.id,
+        produtoNome: produto.nome,
+        unidade: produto.unidade,
+        arquivado: produto.arquivadoEm !== null,
+        estoqueAtual,
+        custoMedioUnitario,
+        valorEstoque: estoqueAtual * custoMedioUnitario,
+      };
+    })
+    // Produto arquivado SEM estoque não tem o que mostrar — ele saiu do
+    // caminho justamente para isso. Já o arquivado que ainda tem mercadoria
+    // na prateleira continua valendo dinheiro, e some da conta seria pior:
+    // o valor total do RF12 passaria a mentir.
+    .filter((linha) => !linha.arquivado || linha.estoqueAtual !== 0)
+    // Maior valor primeiro: quem olha o valor em estoque quer ver onde está
+    // o dinheiro antes de gastar atenção com o que vale dois reais.
+    .sort((a, b) => b.valorEstoque - a.valorEstoque || a.produtoNome.localeCompare(b.produtoNome, "pt-BR"));
 
   const valorTotal = linhas.reduce((soma, linha) => soma + linha.valorEstoque, 0);
   return { linhas, valorTotal };
