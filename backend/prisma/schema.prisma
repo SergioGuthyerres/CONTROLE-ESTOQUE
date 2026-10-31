@@ -115,8 +115,10 @@ model Movimentacao {
   formaPagamento String?
   cliente        String?
 
-  // Presente = esta venda fiado já foi paga. Ausente = ainda é dívida.
-  pagamentoFiado PagamentoFiado?
+  // Os pagamentos recebidos desta venda fiado. São vários porque o freguês
+  // pode pagar em partes (RF24); a dívida está quitada quando a soma deles
+  // cobre o valor da venda.
+  pagamentosFiado PagamentoFiado[]
 
   @@index([produtoId])
   @@index([criadoEm])
